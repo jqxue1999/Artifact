@@ -1,0 +1,16 @@
+# IDE and editor files
+.vscode/
+
+# Build directories
+build/
+
+# Library directories
+openfhelibs/
+benchmarklibs/
+
+# Setup script
+setup.sh
+
+# External dependencies
+benchmark/
+openfhe-development/
