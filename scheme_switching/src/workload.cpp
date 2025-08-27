@@ -1,9 +1,10 @@
 #include "workload.h"
+#include <iomanip>
 
 
 double Workload_3(uint32_t integerBits) {
     cout << "Integer Bits: " << integerBits << endl;   
-    SetupCryptoContext(24, 128, integerBits);
+    SetupCryptoContext(24, 1024, integerBits);
 
     // Prepare test data - generate random arrays of length g_numValues
     vector<double> x1(g_numValues);
@@ -65,7 +66,7 @@ double Workload_3(uint32_t integerBits) {
 
 double Workload_2(uint32_t integerBits) {
     cout << "Integer Bits: " << integerBits << endl;   
-    SetupCryptoContext(24, 128, integerBits);
+    SetupCryptoContext(24, 1024, integerBits);
 
     // Prepare test data - generate random arrays of length g_numValues
     vector<double> x1(g_numValues);
@@ -128,7 +129,7 @@ double Workload_2(uint32_t integerBits) {
 
 double Workload_1(uint32_t integerBits) {
     cout << "Integer Bits: " << integerBits << endl;            
-    SetupCryptoContext(24, 128, integerBits);
+    SetupCryptoContext(24, 1024, integerBits);
 
     // Prepare test data - generate random arrays of length g_numValues
     vector<double> x1(g_numValues);
@@ -176,23 +177,57 @@ double Workload_1(uint32_t integerBits) {
 int main() {
     lbcrypto::OpenFHEParallelControls.Disable();
 
-    cout << "========== Workload 1 ==========" << endl;
-    Workload_1(6);
-    Workload_1(8);
-    Workload_1(12);
-    Workload_1(16);
+    // Store results in a table format
+    vector<uint32_t> bitSizes = {6, 8, 12, 16};
+    vector<vector<double>> results(3, vector<double>(4)); // 3 workloads, 4 bit sizes
+    
+    cout << "Running benchmarks..." << endl;
+    
+    // Run Workload-1
+    cout << "\nWorkload-1: Comp(Enc(A) * Enc(B), Enc(C))" << endl;
+    for (size_t i = 0; i < bitSizes.size(); ++i) {
+        results[0][i] = Workload_1(bitSizes[i]);
+        cout << endl;
+    }
 
-    cout << "========== Workload 2 ==========" << endl;
-    Workload_2(6);
-    Workload_2(8);
-    Workload_2(12);
-    Workload_2(16);
+    // Run Workload-2
+    cout << "Workload-2: Comp(Enc(A), Enc(B)) * Enc(C)" << endl;
+    for (size_t i = 0; i < bitSizes.size(); ++i) {
+        results[1][i] = Workload_2(bitSizes[i]);
+        cout << endl;
+    }
 
-    cout << "========== Workload 3 ==========" << endl;
-    Workload_3(6);
-    Workload_3(8);
-    Workload_3(12);
-    Workload_3(16);
+    // Run Workload-3
+    cout << "Workload-3: Comp(Enc(A) * Enc(B)), (Enc(C) * Enc(D))" << endl;
+    for (size_t i = 0; i < bitSizes.size(); ++i) {
+        results[2][i] = Workload_3(bitSizes[i]);
+        cout << endl;
+    }
+
+    // Print results table
+    cout << "\n" << string(80, '=') << endl;
+    cout << "BENCHMARK RESULTS TABLE" << endl;
+    cout << string(80, '=') << endl;
+    
+    // Header
+    cout << setw(15) << "";
+    for (auto bits : bitSizes) {
+        cout << setw(12) << (to_string(bits) + "-bit");
+    }
+    cout << endl;
+    
+    cout << setw(15) << "" << string(48, '-') << endl;
+    
+    // Results
+    vector<string> workloadNames = {"workload-1", "workload-2", "workload-3"};
+    for (size_t i = 0; i < 3; ++i) {
+        cout << setw(15) << workloadNames[i];
+        for (size_t j = 0; j < bitSizes.size(); ++j) {
+            cout << setw(9) << fixed << setprecision(3) << results[i][j] << " s";
+        }
+        cout << endl;
+    }
+    cout << string(80, '=') << endl;
 
     return 0;
 }

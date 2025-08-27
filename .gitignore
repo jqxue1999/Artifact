@@ -4,6 +4,24 @@
 # Build directories
 build/
 
+# Rust build artifacts
+target/
+Cargo.lock
+
+# C/C++ compiled files
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
 # Library directories
 openfhelibs/
 benchmarklibs/

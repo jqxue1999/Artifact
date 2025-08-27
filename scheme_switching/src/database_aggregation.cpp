@@ -166,7 +166,7 @@ void privateDatabaseAggregation(int n, vector<vector<int>>& table, uint32_t inte
     }
     cout << endl;
     
-    cout << "Total time: " << comparisonCount + multiplicationCount << " s" << endl;
+    cout << "Total time: " << t_sec * (comparisonCount + multiplicationCount) << " s" << endl;
 }
 
 // Function to generate random test data
