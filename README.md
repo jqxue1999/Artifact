@@ -34,7 +34,7 @@ This artifact provides comprehensive benchmarks for evaluating the performance o
 - Provides detailed breakdown of internal operations (CKKS to FHEW switching, FHEW to CKKS switching, etc.)
 - Includes basic workloads, decision tree evaluation, and other AI computation benchmarks
 
-**Encoding Switching Part: (Doing)**
+**Encoding Switching Part:**
 - Basic workload benchmarks (multiplication-comparison operations)
 - Sorting algorithm complexity analysis
 - Floyd-Warshall algorithm benchmarks
