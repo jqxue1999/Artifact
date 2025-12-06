@@ -2,21 +2,21 @@
 
 Paper title: **SoK: Can Fully Homomorphic Encryption Support General AI Computation? A Functional and Cost Analysis**
 
-Requested Badge(s):
+<!-- Requested Badge(s):
   - [x] **Available**
   - [ ] **Functional**
-  - [ ] **Reproduced**
+  - [ ] **Reproduced** -->
 
 ## Description
 
 ### Paper Information
 
 ```bibtex
-@article{xue2025measuring,
+@inproceedings{xue2025measuring,
   title={Measuring Computational Universality of Fully Homomorphic Encryption},
   author={Xue, Jiaqi and Xin, Xin and Zhang, Wei and Zheng, Mengxin and Song, Qianqian and Zhou, Minxuan and Dong, Yushun and Wang, Dongjie and Chen, Xun and Xie, Jiafeng and others},
-  journal={arXiv preprint arXiv:2504.11604},
-  year={2025}
+  booktitle={Proceedings on Privacy Enhancing Technologies (PoPETs)},
+  year={2026}
 }
 ```
 
@@ -99,12 +99,7 @@ All implementations operate on synthetic encrypted data generated locally for be
 
 The artifact can be cloned from the repository:
 ```bash
-git clone [repository-url]
-```
-
-For the specific version evaluated, use the tagged release:
-```bash
-git clone --branch v1.0 [repository-url]
+git clone https://github.com/jqxue1999/Artifact.git
 ```
 
 **External Dependencies:**

@@ -578,10 +578,10 @@ make
 If you use this artifact in your research, please cite:
 
 ```bibtex
-@article{xue2025measuring,
+@inproceedings{xue2025measuring,
   title={Measuring Computational Universality of Fully Homomorphic Encryption},
   author={Xue, Jiaqi and Xin, Xin and Zhang, Wei and Zheng, Mengxin and Song, Qianqian and Zhou, Minxuan and Dong, Yushun and Wang, Dongjie and Chen, Xun and Xie, Jiafeng and others},
-  journal={arXiv preprint arXiv:2504.11604},
-  year={2025}
+  booktitle={Proceedings on Privacy Enhancing Technologies (PoPETs)},
+  year={2026}
 }
 ```
