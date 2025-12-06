@@ -73,14 +73,6 @@ void SetupCryptoContext(uint32_t depth, uint32_t numValues, uint32_t integerBits
 
     g_cc->EvalCompareSwitchPrecompute(pLWE, scaleSignFHEW);
 
-    cout << "CKKS scheme is using ring dimension " << g_cc->GetRingDimension();
-    cout << ", number of slots " << numValues << ", and supports a multiplicative depth of " << depth << endl << endl;
-
-    cout << "FHEW scheme is using lattice parameter " << g_ccLWE->GetParams()->GetLWEParams()->Getn();
-    cout << ", logQ " << logQ_ccLWE;
-    cout << ", plaintext modulus p " << pLWE;
-    cout << ", and ciphertext modulus q " << g_ccLWE->GetParams()->GetLWEParams()->Getq() << endl << endl;
-    
     g_numValues = numValues;
     g_integerBits = integerBits;
 }
@@ -88,28 +80,16 @@ void SetupCryptoContext(uint32_t depth, uint32_t numValues, uint32_t integerBits
 // Common function for CKKS difference, CKKS to FHEW switching, and FHEW sign
 vector<LWECiphertext> Comparison(Ciphertext<DCRTPoly>& a, Ciphertext<DCRTPoly>& b) {
     // Difference on CKKS
-    auto t_diff_start = chrono::steady_clock::now();
-    auto cDiff = g_cc->EvalSub(a, b);     
-    auto t_diff_end = chrono::steady_clock::now();
-    double t_diff_sec = chrono::duration<double>(t_diff_end - t_diff_start).count();
-    cout << "CKKS difference time: " << t_diff_sec << " s" << endl;
+    auto cDiff = g_cc->EvalSub(a, b);
 
     // CKKS to FHEW
-    auto t_ckks2fhew_start = chrono::steady_clock::now();
     auto LWECiphertexts = g_cc->EvalCKKStoFHEW(cDiff, g_numValues);
-    auto t_ckks2fhew_end = chrono::steady_clock::now();
-    double t_ckks2fhew_sec = chrono::duration<double>(t_ckks2fhew_end - t_ckks2fhew_start).count();
-    cout << "CKKS -> FHEW switching time: " << t_ckks2fhew_sec << " s" << endl;
 
     // Sign on FHEW
-    auto t_fhew_start = chrono::steady_clock::now();
     vector<LWECiphertext> LWESign(LWECiphertexts.size());
     for (uint32_t i = 0; i < LWECiphertexts.size(); ++i) {
         LWESign[i] = g_ccLWE->EvalSign(LWECiphertexts[i]);
     }
-    auto t_fhew_end = chrono::steady_clock::now();
-    double t_fhew_sec = chrono::duration<double>(t_fhew_end - t_fhew_start).count();
-    cout << "FHEW sign time: " << t_fhew_sec << " s" << endl;
 
     return LWESign;
 }

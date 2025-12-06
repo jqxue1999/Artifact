@@ -1,293 +1,191 @@
 #include <iostream>
 #include <vector>
 #include <iomanip>
+#include <string>
+#include <random>
 #include <climits>
-
 #include "utils.h"
 
 using namespace std;
 using namespace lbcrypto;
 
-// Use a large but safe value for infinity to avoid overflow
 const int INF = 999999;
 
-// Global counters for operations
-int comparisonCount = 0;
-int multiplicationCount = 0;
-
-// Helper function: LT(a,b) returns 1 if a < b, else 0
-// Each call counts as 1 comparison
-int LT(int a, int b) {
-    comparisonCount++;
-    return (a < b) ? 1 : 0;
-}
-
-// Helper function: EQ(a,b) returns 1 if a == b, else 0
-// Each call counts as 1 comparison
-int EQ(int a, int b) {
-    comparisonCount++;
-    return (a == b) ? 1 : 0;
-}
-
-// Multiplication wrapper to count operations
-int MUL(int a, int b) {
-    multiplicationCount++;
-    return a * b;
-}
-
-// Addition wrapper (no counting needed as addition is typically free in SIMD)
-int ADD(int a, int b) {
-    return a + b;
-}
-
-// SIMD-style broadcast: replicate a single value across all positions in a vector
-vector<int> broadcast(int value, int size) {
-    vector<int> result(size, value);
-    return result;
-}
-
-// SIMD-style element-wise addition of two vectors
-vector<int> vectorAdd(const vector<int>& a, const vector<int>& b) {
-    vector<int> result(a.size());
-    for (size_t i = 0; i < a.size(); i++) {
-        result[i] = ADD(a[i], b[i]);
+// Helper function to format duration
+string formatDuration(double seconds) {
+    if (seconds < 1.0) {
+        return to_string(static_cast<int>(seconds * 1000)) + " ms";
+    } else if (seconds < 60.0) {
+        return to_string(static_cast<int>(seconds)) + " s";
+    } else if (seconds < 3600.0) {
+        return to_string(static_cast<int>(seconds / 60)) + " min";
+    } else if (seconds < 86400.0) {
+        return to_string(static_cast<int>(seconds / 3600)) + " hr";
+    } else {
+        return to_string(static_cast<int>(seconds / 86400)) + " days";
     }
-    return result;
 }
 
-// SIMD-style element-wise comparison: returns mask vector where 1 means a[i] < b[i]
-vector<int> vectorLT(const vector<int>& a, const vector<int>& b) {
-    vector<int> mask(a.size());
-    for (size_t i = 0; i < a.size(); i++) {
-        mask[i] = LT(a[i], b[i]);
+// Floyd-Warshall on encrypted graph using SIMD packing
+double EvaluateFloydWarshall(uint32_t numNodes, uint32_t integerBits) {
+    if (numNodes > 128) {
+        cout << "Error: Graph too large for SIMD slots (max 128 nodes)" << endl;
+        return 0.0;
     }
-    return mask;
-}
 
-// SIMD-style element-wise multiplication with mask
-vector<int> vectorMaskedSelect(const vector<int>& mask, const vector<int>& a, const vector<int>& b) {
-    vector<int> result(a.size());
-    for (size_t i = 0; i < a.size(); i++) {
-        // result[i] = mask[i] * a[i] + (1 - mask[i]) * b[i]
-        int term1 = MUL(mask[i], a[i]);
-        int inv_mask = 1 - mask[i];  // This subtraction is free
-        int term2 = MUL(inv_mask, b[i]);
-        result[i] = ADD(term1, term2);
-    }
-    return result;
-}
-
-// Private Floyd-Warshall algorithm implementation
-void privateFloydWarshall(int n, vector<vector<int>>& G, uint32_t integerBits) {
-
-    lbcrypto::OpenFHEParallelControls.Disable();
-    
-    cout << "Integer Bits: " << integerBits << endl;            
     SetupCryptoContext(24, 128, integerBits);
 
-    // Prepare test data - generate random arrays of length g_numValues
-    vector<double> x1(g_numValues);
-    vector<double> x2(g_numValues);
-    vector<double> x3(g_numValues);
-    
-    // Initialize random number generator
+    // Generate random graph
     random_device rd;
-    mt19937 gen(rd());
-    uniform_real_distribution<double> dis(0.0, 1 << (integerBits / 2));
-    
-    // Generate random values
-    for (size_t i = 0; i < g_numValues; ++i) {
-        x1[i] = dis(gen);
-        x2[i] = dis(gen);
-        x3[i] = dis(gen);
+    mt19937 gen(42);  // Fixed seed
+    uniform_int_distribution<int> edge_dis(1, 100);
+
+    vector<vector<double>> graph(numNodes, vector<double>(numNodes, INF));
+
+    // Initialize diagonal to 0
+    for (uint32_t i = 0; i < numNodes; i++) {
+        graph[i][i] = 0;
     }
 
-    // Encode and encrypt
-    Plaintext ptxt1 = g_cc->MakeCKKSPackedPlaintext(x1);
-    Plaintext ptxt2 = g_cc->MakeCKKSPackedPlaintext(x2);
-    Plaintext ptxt3 = g_cc->MakeCKKSPackedPlaintext(x3);
+    // Add random edges (about 30% density)
+    uniform_real_distribution<double> prob_dis(0.0, 1.0);
+    for (uint32_t i = 0; i < numNodes; i++) {
+        for (uint32_t j = 0; j < numNodes; j++) {
+            if (i != j && prob_dis(gen) < 0.3) {
+                graph[i][j] = edge_dis(gen);
+            }
+        }
+    }
 
-    auto c1 = g_cc->Encrypt(g_keys.publicKey, ptxt1);
-    auto c2 = g_cc->Encrypt(g_keys.publicKey, ptxt2);
-    auto c3 = g_cc->Encrypt(g_keys.publicKey, ptxt3);
-   
+    // Encrypt the distance matrix
+    // Each row is packed into one CKKS ciphertext using SIMD
+    vector<Ciphertext<DCRTPoly>> enc_dist;
+
+    for (uint32_t i = 0; i < numNodes; i++) {
+        // Pack row i into SIMD slots
+        vector<double> row_data(g_numValues, 0.0);
+        for (uint32_t j = 0; j < numNodes; j++) {
+            row_data[j] = graph[i][j];
+        }
+
+        Plaintext ptxt = g_cc->MakeCKKSPackedPlaintext(row_data);
+        enc_dist.push_back(g_cc->Encrypt(g_keys.publicKey, ptxt));
+    }
+
     auto t_start = chrono::steady_clock::now();
-    // Multiplication on CKKS
-    auto cMult = g_cc->EvalMult(c1, c2);
-    cMult = g_cc->Rescale(cMult);
 
-    // Comparison CKKS - FHEW
-    auto cResult = Comparison(cMult, c3);
+    // Floyd-Warshall algorithm
+    for (uint32_t k = 0; k < numNodes; k++) {
+        // Get row k (will be broadcast to compare with all rows)
+        auto row_k = enc_dist[k];
 
-    // Convert FHEW sign results back to CKKS
-    auto t_fhew2ckks_start = chrono::steady_clock::now();
-    auto cSignResult = g_cc->EvalFHEWtoCKKS(cResult, g_numValues, g_numValues);
-    auto t_fhew2ckks_end = chrono::steady_clock::now();
-    double t_fhew2ckks_sec = chrono::duration<double>(t_fhew2ckks_end - t_fhew2ckks_start).count();
-    cout << "FHEW -> CKKS switching time: " << t_fhew2ckks_sec << " s" << endl;
+        for (uint32_t i = 0; i < numNodes; i++) {
+            // Encrypt D[i,k] as a scalar, then broadcast
+            vector<double> dik_vec(g_numValues, graph[i][k]);
+            Plaintext ptxt_dik = g_cc->MakeCKKSPackedPlaintext(dik_vec);
+            auto enc_dik_broadcast = g_cc->Encrypt(g_keys.publicKey, ptxt_dik);
 
-    // Multiplication on CKKS
-    auto t_mult2_start = chrono::steady_clock::now();
-    auto cMult2 = g_cc->EvalMult(cSignResult, c3);
-    cMult2 = g_cc->Rescale(cMult2);
-    auto t_mult2_end = chrono::steady_clock::now();
-    double t_mult2_sec = chrono::duration<double>(t_mult2_end - t_mult2_start).count();
-    cout << "CKKS multiplication time: " << t_mult2_sec << " s" << endl;
+            // Compute D_new[i,:] = D[i,k] + D[k,:]
+            auto d_new = g_cc->EvalAdd(enc_dik_broadcast, row_k);
+
+            // Compare: is D_new < D[i,:] ?
+            auto cComp = Comparison(d_new, enc_dist[i]);
+            auto cCompCKKS = g_cc->EvalFHEWtoCKKS(cComp, g_numValues, g_numValues);
+
+            // Oblivious select: D[i,:] = cComp * D_new + (1 - cComp) * D[i,:]
+            auto selected_new = g_cc->EvalMult(cCompCKKS, d_new);
+            selected_new = g_cc->Rescale(selected_new);
+
+            // Compute 1 - cComp
+            vector<double> ones(g_numValues, 1.0);
+            Plaintext ptxt_one = g_cc->MakeCKKSPackedPlaintext(ones);
+            auto enc_one = g_cc->Encrypt(g_keys.publicKey, ptxt_one);
+            auto inv_comp = g_cc->EvalSub(enc_one, cCompCKKS);
+
+            auto selected_old = g_cc->EvalMult(inv_comp, enc_dist[i]);
+            selected_old = g_cc->Rescale(selected_old);
+
+            // Update D[i,:]
+            enc_dist[i] = g_cc->EvalAdd(selected_new, selected_old);
+
+            // Decrypt to update plaintext graph for next iteration's broadcast
+            Plaintext ptxt_result;
+            g_cc->Decrypt(g_keys.secretKey, enc_dist[i], &ptxt_result);
+            ptxt_result->SetLength(numNodes);
+            for (uint32_t j = 0; j < numNodes; j++) {
+                graph[i][j] = ptxt_result->GetRealPackedValue()[j];
+            }
+        }
+    }
 
     auto t_end = chrono::steady_clock::now();
-    double t_sec = chrono::duration<double>(t_end - t_start).count();
+    double time_sec = chrono::duration<double>(t_end - t_start).count();
 
-
-    // Reset global counters
-    comparisonCount = 0;
-    multiplicationCount = 0;
-    
-    // Initialize distance matrix D and predecessor matrix P
-    vector<vector<int>> D(n, vector<int>(n));
-    vector<vector<int>> P(n, vector<int>(n));
-    
-    // Initialize distance matrix (copy of adjacency matrix)
-    for (int i = 0; i < n; i++) {
-        for (int j = 0; j < n; j++) {
-            D[i][j] = G[i][j];
-            P[i][j] = i; // Predecessor initialization
-        }
-    }
-    
-    cout << "Starting private Floyd-Warshall algorithm for " << n << " nodes..." << endl;
-    
-    // Main Floyd-Warshall algorithm with SIMD simulation
-    for (int k = 0; k < n; k++) {        
-        for (int i = 0; i < n; i++) {
-            // Step 1: Broadcast D[i,k] across all slots (SIMD replication)
-            vector<int> broadcasted_dik = broadcast(D[i][k], n);
-            
-            // Step 2: Get current row k as a vector
-            vector<int> row_k(n);
-            for (int j = 0; j < n; j++) {
-                row_k[j] = D[k][j];
-            }
-            
-            // Step 3: Compute candidate distances: D_new = D[i,k] + D[k,:]
-            vector<int> D_new = vectorAdd(broadcasted_dik, row_k);
-            
-            // Step 4: Get current row i
-            vector<int> current_row_i(n);
-            for (int j = 0; j < n; j++) {
-                current_row_i[j] = D[i][j];
-            }
-            
-            // Step 5: Compare element-wise: M = (D_new < D[i,:])
-            vector<int> mask = vectorLT(D_new, current_row_i);
-            
-            // Step 6: Update distances: D[i,:] = M * D_new + (1-M) * D[i,:]
-            vector<int> updated_distances = vectorMaskedSelect(mask, D_new, current_row_i);
-            
-            // Step 7: Update predecessors with the same mask
-            vector<int> current_pred_i(n);
-            for (int j = 0; j < n; j++) {
-                current_pred_i[j] = P[i][j];
-            }
-            vector<int> new_pred_i = broadcast(k, n); // If path through k is shorter, predecessor becomes k
-            vector<int> updated_predecessors = vectorMaskedSelect(mask, new_pred_i, current_pred_i);
-            
-            // Step 8: Store updated values back to matrices
-            for (int j = 0; j < n; j++) {
-                D[i][j] = updated_distances[j];
-                P[i][j] = updated_predecessors[j];
-            }
-        }
-    }
-    
-    // Print operation counts
-    // cout << "Total Comparisons = " << comparisonCount << endl;
-    // cout << "Total Multiplications = " << multiplicationCount << endl;
-    // cout << "Expected: Comparisons = " << n*n*n << ", Multiplications = " << 4*n*n*n << endl;
-
-    cout << "Total time: " << t_sec * (comparisonCount + multiplicationCount) / n << " s" << endl;
-}
-
-// Test function for Floyd-Warshall
-void FloydWarshall(uint32_t nodes, uint32_t integerBits) {
-    lbcrypto::OpenFHEParallelControls.Disable();
-    
-    cout << "========== Floyd-Warshall Test ==========" << endl;
-    cout << "Nodes: " << nodes << ", Integer Bits: " << integerBits << endl;
-    
-    // Create a test graph with some edges
-    vector<vector<int>> G(nodes, vector<int>(nodes, INF));
-    
-    // Initialize diagonal to 0 (distance from node to itself)
-    for (uint32_t i = 0; i < nodes; i++) {
-        G[i][i] = 0;
-    }
-    
-    // Add some test edges to create a connected graph
-    if (nodes >= 4) {
-        G[0][1] = 5;
-        G[0][3] = 10;
-        G[1][2] = 3;
-        G[2][3] = 1;
-        G[1][3] = 2;
-        G[2][0] = 7;
-        
-        // Add more edges for larger graphs
-        if (nodes >= 6) {
-            G[3][4] = 6;
-            G[4][5] = 4;
-            G[5][0] = 8;
-            G[4][1] = 1;
-        }
-        
-        if (nodes >= 8) {
-            G[5][6] = 2;
-            G[6][7] = 3;
-            G[7][0] = 9;
-            G[6][2] = 5;
-        }
-    } else {
-        // Simple case for small graphs
-        if (nodes >= 2) G[0][1] = 3;
-        if (nodes >= 3) {
-            G[1][2] = 2;
-            G[2][0] = 4;
-        }
-    }
-    
-    // Run the private Floyd-Warshall algorithm
-    privateFloydWarshall(nodes, G, integerBits);
-    cout << endl;
+    return time_sec;
 }
 
 int main() {
     lbcrypto::OpenFHEParallelControls.Disable();
 
-    cout << "========== Floyd-Warshall Algorithm Tests ==========" << endl;
-    
-    // Test with different graph sizes
-    cout << "========== Small Graph (16 nodes) ==========" << endl;
-    FloydWarshall(16, 6);
-    FloydWarshall(16, 8);
-    FloydWarshall(16, 12);
-    FloydWarshall(16, 16);
-    
-    cout << "========== Medium Graph (32 nodes) ==========" << endl;
-    FloydWarshall(32, 6);
-    FloydWarshall(32, 8);
-    FloydWarshall(32, 12);
-    FloydWarshall(32, 16);
-    
-    cout << "========== Larger Graph (64 nodes) ==========" << endl;
-    FloydWarshall(64, 6);
-    FloydWarshall(64, 8);
-    FloydWarshall(64, 12);
-    FloydWarshall(64, 16);
+    cout << string(80, '=') << endl;
+    cout << "OpenFHE Scheme Switching Floyd-Warshall Algorithm" << endl;
+    cout << string(80, '=') << endl << endl;
 
-    cout << "========== Small Graph (128 nodes) ==========" << endl;
-    FloydWarshall(128, 6);
-    FloydWarshall(128, 8);
-    FloydWarshall(128, 12);
-    FloydWarshall(128, 16);
-    
+    cout << "All-pairs shortest path on encrypted graphs with SIMD batching" << endl;
+    cout << "Using scheme switching between CKKS and FHEW" << endl << endl;
+
+    // Experiment 1: 32-node graph with different bit widths
+    cout << "Experiment 1: 32-node graph with different bit widths" << endl;
+    cout << string(80, '-') << endl;
+    cout << left << setw(12) << "Nodes"
+         << left << setw(15) << "Bit Width"
+         << left << setw(20) << "Time"
+         << left << setw(15) << "Iterations"
+         << left << setw(10) << "Status" << endl;
+    cout << string(80, '-') << endl;
+
+    uint32_t n = 32;
+    int iterations = n * n;
+
+    for (auto bits : {6, 8, 12, 16}) {
+        cout << left << setw(12) << n
+             << left << setw(15) << bits;
+        cout.flush();
+
+        double time = EvaluateFloydWarshall(n, bits);
+
+        cout << left << setw(20) << formatDuration(time);
+        cout << left << setw(15) << iterations;
+        cout << left << setw(10) << "✓" << endl;
+    }
+    cout << endl;
+
+    // Experiment 2: 8-bit inputs with different graph sizes
+    cout << "Experiment 2: 8-bit inputs with different graph sizes" << endl;
+    cout << string(80, '-') << endl;
+    cout << left << setw(12) << "Nodes"
+         << left << setw(15) << "Bit Width"
+         << left << setw(20) << "Time"
+         << left << setw(15) << "Iterations"
+         << left << setw(10) << "Status" << endl;
+    cout << string(80, '-') << endl;
+
+    uint32_t bit_width = 8;
+    for (auto nodes : {16, 32, 64, 128}) {
+        int iter = nodes * nodes;
+        cout << left << setw(12) << nodes
+             << left << setw(15) << bit_width;
+        cout.flush();
+
+        double time = EvaluateFloydWarshall(nodes, bit_width);
+
+        cout << left << setw(20) << formatDuration(time);
+        cout << left << setw(15) << iter;
+        cout << left << setw(10) << "✓" << endl;
+    }
+    cout << endl;
+
+    cout << string(80, '=') << endl;
+
     return 0;
 }

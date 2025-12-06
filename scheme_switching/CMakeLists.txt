@@ -78,14 +78,23 @@ add_executable(floyd_warshall
     src/utils.cpp
 )
 
-add_executable(database_aggregation 
+add_executable(database_aggregation
     src/database_aggregation.cpp
     src/utils.cpp
 )
 
+add_executable(test_basic
+    src/test_basic.cpp
+    src/utils.cpp
+)
+
+add_executable(test_decision_tree_small
+    src/test_decision_tree_small.cpp
+    src/utils.cpp
+)
 
 # # Scheme Switching Benchmark Suite
-# add_executable(scheme-switching-benchmark-test 
+# add_executable(scheme-switching-benchmark-test
 #     src/main_test.cpp
 # )
 
