@@ -1,5 +1,10 @@
-pub mod complexity_analysis;
-pub mod real_benchmark;
+// Real private sorting implementation with >=128-bit security
+pub mod real_sorting;
+pub mod real_sorting_benchmark;
+pub mod security_params;
+pub mod verify_security;
 
-pub use complexity_analysis::*;
-pub use real_benchmark::*;
+pub use real_sorting::*;
+pub use real_sorting_benchmark::*;
+pub use security_params::*;
+pub use verify_security::*;

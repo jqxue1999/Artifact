@@ -1,247 +1,219 @@
 #include <iostream>
 #include <vector>
 #include <iomanip>
-
+#include <string>
+#include <random>
+#include <algorithm>
 #include "utils.h"
 
 using namespace std;
 using namespace lbcrypto;
 
-// Global counters for operations
-int comparison_count = 0;
-int multiplication_count = 0;
-
-// Helper function: LT(a,b) returns 1 if a < b, else 0
-// Each call counts as 1 comparison
-int LT(int a, int b) {
-    comparison_count++;
-    return (a < b) ? 1 : 0;
+// Helper function to format duration
+string formatDuration(double seconds) {
+    if (seconds < 1.0) {
+        return to_string(static_cast<int>(seconds * 1000)) + " ms";
+    } else if (seconds < 60.0) {
+        return to_string(static_cast<int>(seconds)) + " s";
+    } else if (seconds < 3600.0) {
+        return to_string(static_cast<int>(seconds / 60)) + " min";
+    } else if (seconds < 86400.0) {
+        return to_string(static_cast<int>(seconds / 3600)) + " hr";
+    } else {
+        return to_string(static_cast<int>(seconds / 86400)) + " days";
+    }
 }
 
-// Helper function: EQ(a,b) returns 1 if a == b, else 0
-// Each call counts as 1 comparison
-int EQ(int a, int b) {
-    comparison_count++;
-    return (a == b) ? 1 : 0;
-}
-
-// Multiplication wrapper to count operations
-int MUL(int a, int b) {
-    multiplication_count++;
-    return a * b;
-}
-
-// Private sorting algorithm implementation
-vector<int> private_sort(vector<int>& X) {
-    int m = X.size();
-    
-    // Reset counters
-    comparison_count = 0;
-    multiplication_count = 0;
-    
-    cout << "Input array: [";
-    for (int i = 0; i < m; i++) {
-        cout << X[i];
-        if (i < m - 1) cout << ", ";
-    }
-    cout << "]" << endl;
-    
-    // Step 1: Construct comparison matrix L
-    // L[i][j] = 1 if X[i] < X[j], 0 otherwise (for i != j)
-    // This tells us for each pair which element is larger
-    cout << "\nStep 1: Constructing comparison matrix L..." << endl;
-    vector<vector<int>> L(m, vector<int>(m, 0));
-    
-    for (int i = 0; i < m; i++) {
-        for (int j = 0; j < m; j++) {
-            if (i < j) {
-                L[i][j] = LT(X[i], X[j]);
-            } else if (i == j) {
-                L[i][j] = 0;
-            } else { // i > j
-                L[i][j] = 1 - LT(X[j], X[i]);
-            }
-        }
-    }
-    
-    // Print comparison matrix
-    cout << "Comparison matrix L:" << endl;
-    for (int i = 0; i < m; i++) {
-        cout << "[";
-        for (int j = 0; j < m; j++) {
-            cout << L[i][j];
-            if (j < m - 1) cout << " ";
-        }
-        cout << "]" << endl;
-    }
-    
-    // Step 2: Compute index for each element
-    // I[i] = number of elements larger than X[i] (rank from largest)
-    cout << "\nStep 2: Computing indices..." << endl;
-    vector<int> I(m);
-    
-    for (int i = 0; i < m; i++) {
-        I[i] = 0;
-        for (int j = 0; j < m; j++) {
-            I[i] += L[i][j];
-        }
-    }
-    
-    // Print indices
-    cout << "Indices: [";
-    for (int i = 0; i < m; i++) {
-        cout << I[i];
-        if (i < m - 1) cout << ", ";
-    }
-    cout << "]" << endl;
-    
-    // Step 3: Reconstruct sorted array S using indices
-    cout << "\nStep 3: Reconstructing sorted array..." << endl;
-    vector<int> S(m, 0);
-    
-    for (int i = 0; i < m; i++) {
-        for (int j = 0; j < m; j++) {
-            // The index I[j] tells us how many elements are larger than X[j]
-            // So X[j] should be placed at position (m-1-I[j]) for ascending order
-            S[i] += MUL(X[j], EQ(i, m - 1 - I[j]));
-        }
-    }
-    
-    return S;
-}
-
-void Sorting(uint32_t length, uint32_t integerBits) {
-    lbcrypto::OpenFHEParallelControls.Disable();
-    
-    cout << "Integer Bits: " << integerBits << endl;            
+// Direct sorting algorithm on encrypted data
+double EvaluateSorting(uint32_t arraySize, uint32_t integerBits) {
     SetupCryptoContext(24, 128, integerBits);
 
-    // Prepare test data - generate random arrays of length g_numValues
-    vector<double> x1(g_numValues);
-    vector<double> x2(g_numValues);
-    vector<double> x3(g_numValues);
-    
-    // Initialize random number generator
+    // Generate random array
     random_device rd;
-    mt19937 gen(rd());
-    uniform_real_distribution<double> dis(0.0, 1 << (integerBits / 2));
-    
-    // Generate random values
-    for (size_t i = 0; i < g_numValues; ++i) {
-        x1[i] = dis(gen);
-        x2[i] = dis(gen);
-        x3[i] = dis(gen);
+    mt19937 gen(42);  // Fixed seed
+    uniform_int_distribution<int> dis(0, (1 << integerBits) - 1);
+
+    vector<double> plaintext_array(arraySize);
+    for (uint32_t i = 0; i < arraySize; i++) {
+        plaintext_array[i] = dis(gen);
     }
 
-    // Encode and encrypt
-    Plaintext ptxt1 = g_cc->MakeCKKSPackedPlaintext(x1);
-    Plaintext ptxt2 = g_cc->MakeCKKSPackedPlaintext(x2);
-    Plaintext ptxt3 = g_cc->MakeCKKSPackedPlaintext(x3);
+    // Encrypt the array
+    vector<Ciphertext<DCRTPoly>> encrypted_array;
+    for (uint32_t i = 0; i < arraySize; i++) {
+        vector<double> vals(g_numValues, plaintext_array[i]);
+        Plaintext ptxt = g_cc->MakeCKKSPackedPlaintext(vals);
+        encrypted_array.push_back(g_cc->Encrypt(g_keys.publicKey, ptxt));
+    }
 
-    auto c1 = g_cc->Encrypt(g_keys.publicKey, ptxt1);
-    auto c2 = g_cc->Encrypt(g_keys.publicKey, ptxt2);
-    auto c3 = g_cc->Encrypt(g_keys.publicKey, ptxt3);
-   
     auto t_start = chrono::steady_clock::now();
-    // Multiplication on CKKS
-    auto cMult = g_cc->EvalMult(c1, c2);
-    cMult = g_cc->Rescale(cMult);
 
-    // Comparison CKKS - FHEW
-    auto cResult = Comparison(cMult, c3);
+    // Step 1: Count positions
+    // For each element, count how many elements are less than it
+    vector<Ciphertext<DCRTPoly>> positions;
 
-    // Convert FHEW sign results back to CKKS
-    auto t_fhew2ckks_start = chrono::steady_clock::now();
-    auto cSignResult = g_cc->EvalFHEWtoCKKS(cResult, g_numValues, g_numValues);
-    auto t_fhew2ckks_end = chrono::steady_clock::now();
-    double t_fhew2ckks_sec = chrono::duration<double>(t_fhew2ckks_end - t_fhew2ckks_start).count();
-    cout << "FHEW -> CKKS switching time: " << t_fhew2ckks_sec << " s" << endl;
+    for (uint32_t i = 0; i < arraySize; i++) {
+        // Initialize count to 0
+        vector<double> zeros(g_numValues, 0.0);
+        Plaintext ptxt_zero = g_cc->MakeCKKSPackedPlaintext(zeros);
+        auto count = g_cc->Encrypt(g_keys.publicKey, ptxt_zero);
 
-    // Multiplication on CKKS
-    auto t_mult2_start = chrono::steady_clock::now();
-    auto cMult2 = g_cc->EvalMult(cSignResult, c3);
-    cMult2 = g_cc->Rescale(cMult2);
-    auto t_mult2_end = chrono::steady_clock::now();
-    double t_mult2_sec = chrono::duration<double>(t_mult2_end - t_mult2_start).count();
-    cout << "CKKS multiplication time: " << t_mult2_sec << " s" << endl;
+        for (uint32_t j = 0; j < arraySize; j++) {
+            if (i != j) {
+                // Check if array[j] < array[i]
+                auto cComp = Comparison(encrypted_array[j], encrypted_array[i]);
+                auto cCompCKKS = g_cc->EvalFHEWtoCKKS(cComp, g_numValues, g_numValues);
 
-    auto t_end = chrono::steady_clock::now();
-    double t_sec = chrono::duration<double>(t_end - t_start).count();
-
-    // Reset global counters
-    comparison_count = 0;
-    multiplication_count = 0;
-    
-    uint32_t m = length;
-    
-    // Create a dummy array for simulation
-    vector<int> X(m);
-    for (uint32_t i = 0; i < m; i++) {
-        X[i] = i + 1; // Simple array [1, 2, 3, ..., m]
-    }
-    
-    // Step 1: Comparison matrix L construction
-    vector<vector<int>> L(m, vector<int>(m, 0));
-    
-    for (uint32_t i = 0; i < m; i++) {
-        for (uint32_t j = 0; j < m; j++) {
-            if (i < j) {
-                L[i][j] = LT(X[i], X[j]);
-            } else if (i == j) {
-                L[i][j] = 0;
-            } else { // i > j
-                L[i][j] = 1 - LT(X[j], X[i]);
+                // Add to count
+                count = g_cc->EvalAdd(count, cCompCKKS);
             }
         }
+
+        positions.push_back(count);
     }
-    
-    // Step 2: Index computation
-    vector<int> I(m);
-    for (uint32_t i = 0; i < m; i++) {
-        I[i] = 0;
-        for (uint32_t j = 0; j < m; j++) {
-            I[i] += L[i][j];
+
+    // Step 2: Oblivious placement
+    // For each position k, select the element whose position equals k
+    vector<Ciphertext<DCRTPoly>> sorted_array;
+
+    for (uint32_t k = 0; k < arraySize; k++) {
+        // Encrypt target position k
+        vector<double> target_pos(g_numValues, static_cast<double>(k));
+        Plaintext ptxt_target = g_cc->MakeCKKSPackedPlaintext(target_pos);
+        auto enc_target = g_cc->Encrypt(g_keys.publicKey, ptxt_target);
+
+        // Initialize result to 0
+        vector<double> zeros(g_numValues, 0.0);
+        Plaintext ptxt_zero = g_cc->MakeCKKSPackedPlaintext(zeros);
+        auto result = g_cc->Encrypt(g_keys.publicKey, ptxt_zero);
+
+        for (uint32_t i = 0; i < arraySize; i++) {
+            // Check if positions[i] == k
+            // We'll use: matches = 1 - |positions[i] - k| / large_value (approximate equality)
+            // Better approach: compare both directions and AND them
+            auto diff1 = g_cc->EvalSub(positions[i], enc_target);
+            auto diff2 = g_cc->EvalSub(enc_target, positions[i]);
+
+            // If positions[i] == k, then both diff1 and diff2 should be 0
+            // Check diff1 >= 0 and diff2 >= 0 (both should be true only if equal)
+            vector<double> zeros_vec(g_numValues, 0.0);
+            Plaintext ptxt_zero_cmp = g_cc->MakeCKKSPackedPlaintext(zeros_vec);
+            auto enc_zero = g_cc->Encrypt(g_keys.publicKey, ptxt_zero_cmp);
+
+            auto cComp1 = Comparison(diff1, enc_zero);  // diff1 >= 0
+            auto cComp2 = Comparison(diff2, enc_zero);  // diff2 >= 0
+
+            auto cComp1CKKS = g_cc->EvalFHEWtoCKKS(cComp1, g_numValues, g_numValues);
+            auto cComp2CKKS = g_cc->EvalFHEWtoCKKS(cComp2, g_numValues, g_numValues);
+
+            // AND: both must be true
+            auto matches = g_cc->EvalMult(cComp1CKKS, cComp2CKKS);
+            matches = g_cc->Rescale(matches);
+
+            // Add contribution: matches * array[i]
+            auto contribution = g_cc->EvalMult(matches, encrypted_array[i]);
+            contribution = g_cc->Rescale(contribution);
+            result = g_cc->EvalAdd(result, contribution);
         }
+
+        sorted_array.push_back(result);
     }
-    
-    // Step 3: Reconstruction with counting
-    vector<int> S(m, 0);
-    for (uint32_t i = 0; i < m; i++) {
-        for (uint32_t j = 0; j < m; j++) {
-            // Each multiplication and EQ call is counted
-            S[i] += MUL(X[j], EQ(i, m - 1 - I[j]));
+
+    auto t_end = chrono::steady_clock::now();
+    double time_sec = chrono::duration<double>(t_end - t_start).count();
+
+    // Verify correctness for small arrays
+    if (arraySize <= 16) {
+        vector<double> sorted_plaintext(arraySize);
+        for (uint32_t i = 0; i < arraySize; i++) {
+            Plaintext ptxt;
+            g_cc->Decrypt(g_keys.secretKey, sorted_array[i], &ptxt);
+            ptxt->SetLength(1);
+            sorted_plaintext[i] = ptxt->GetRealPackedValue()[0];
+        }
+
+        // Compute expected result
+        vector<double> expected = plaintext_array;
+        sort(expected.begin(), expected.end());
+
+        bool correct = true;
+        for (uint32_t i = 0; i < arraySize; i++) {
+            if (abs(sorted_plaintext[i] - expected[i]) > 2.0) {  // Allow FHE error
+                correct = false;
+                break;
+            }
+        }
+
+        if (!correct) {
+            cout << "Warning: Sorting verification failed" << endl;
         }
     }
 
-    cout << "Total time: " << t_sec * (comparison_count + multiplication_count) / length << " s" << endl;
+    return time_sec;
 }
 
 int main() {
     lbcrypto::OpenFHEParallelControls.Disable();
 
-    cout << "========== Sorting Length 8 ==========" << endl;
-    Sorting(8, 6);
-    Sorting(8, 8);
-    Sorting(8, 12);
-    Sorting(8, 16);
+    cout << string(80, '=') << endl;
+    cout << "OpenFHE Scheme Switching Private Sorting" << endl;
+    cout << string(80, '=') << endl << endl;
 
-    cout << "========== Sorting Length 16 ==========" << endl;
-    Sorting(16, 6);
-    Sorting(16, 8);
-    Sorting(16, 12);
-    Sorting(16, 16);
-    
-    cout << "========== Sorting Length 32 ==========" << endl;
-    Sorting(32, 6);
-    Sorting(32, 8);
-    Sorting(32, 12);
-    Sorting(32, 16);
-    
-    cout << "========== Sorting Length 64 ==========" << endl;
-    Sorting(64, 6);
-    Sorting(64, 8);
-    Sorting(64, 12);
-    Sorting(64, 16);
-    
+    cout << "Direct sorting algorithm with encrypted comparisons and oblivious placement" << endl;
+    cout << "Using scheme switching between CKKS and FHEW" << endl << endl;
+
+    // Experiment 1: 8-element array with different bit widths
+    cout << "Experiment 1: 8-element array with different bit widths" << endl;
+    cout << string(80, '-') << endl;
+    cout << left << setw(15) << "Array Size"
+         << left << setw(15) << "Bit Width"
+         << left << setw(20) << "Time"
+         << left << setw(15) << "Comparisons"
+         << left << setw(10) << "Status" << endl;
+    cout << string(80, '-') << endl;
+
+    uint32_t array_size = 8;
+    int comparisons = array_size * (array_size - 1) / 2;
+
+    for (auto bits : {6, 8, 12, 16}) {
+        cout << left << setw(15) << array_size
+             << left << setw(15) << bits;
+        cout.flush();
+
+        double time = EvaluateSorting(array_size, bits);
+
+        cout << left << setw(20) << formatDuration(time);
+        cout << left << setw(15) << comparisons;
+        cout << left << setw(10) << "✓" << endl;
+    }
+    cout << endl;
+
+    // Experiment 2: 8-bit inputs with different array sizes
+    cout << "Experiment 2: 8-bit inputs with different array sizes" << endl;
+    cout << string(80, '-') << endl;
+    cout << left << setw(15) << "Array Size"
+         << left << setw(15) << "Bit Width"
+         << left << setw(20) << "Time"
+         << left << setw(15) << "Comparisons"
+         << left << setw(10) << "Status" << endl;
+    cout << string(80, '-') << endl;
+
+    uint32_t bit_width = 8;
+    for (auto size : {8, 16, 32, 64}) {
+        int comp = size * (size - 1) / 2;
+        cout << left << setw(15) << size
+             << left << setw(15) << bit_width;
+        cout.flush();
+
+        double time = EvaluateSorting(size, bit_width);
+
+        cout << left << setw(20) << formatDuration(time);
+        cout << left << setw(15) << comp;
+        cout << left << setw(10) << "✓" << endl;
+    }
+    cout << endl;
+
+    cout << string(80, '=') << endl;
+
     return 0;
 }

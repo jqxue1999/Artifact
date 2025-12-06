@@ -34,8 +34,11 @@ This artifact provides comprehensive benchmarks for evaluating the performance o
 - Provides detailed breakdown of internal operations (CKKS to FHEW switching, FHEW to CKKS switching, etc.)
 - Includes basic workloads, decision tree evaluation, and other AI computation benchmarks
 
-**Encoding Switching Part: (Doing)**
-- Basic workload benchmarks (multiplication-comparison operations)
+**Encoding Switching Part:**
+- Implements same benchmarks as TFHE and scheme switching using HElib with HE-Bridge
+- Uses FV encoding (p^r) for arithmetic and beFV encoding (p) for comparisons
+- Polynomial interpolation enables encrypted comparisons without scheme switching overhead
+- Includes basic workload benchmarks (multiplication-comparison operations)
 - Sorting algorithm complexity analysis
 - Floyd-Warshall algorithm benchmarks
 - Decision tree evaluation benchmarks
@@ -86,26 +89,47 @@ This artifact provides comprehensive benchmarks for evaluating the performance o
 │               ├── lib.rs
 │               ├── complexity_analysis.rs
 │               └── real_benchmark.rs
-└── scheme_switching/           # OpenFHE scheme switching implementations
+├── scheme_switching/           # OpenFHE scheme switching implementations
+│   ├── CMakeLists.txt          # CMake build configuration
+│   ├── README.md               # Detailed scheme switching documentation
+│   ├── run.sh                  # Build and run script
+│   ├── src/
+│   │   ├── workload.cpp        # Basic workload benchmarks
+│   │   ├── workload.h          # Workload function declarations
+│   │   ├── sorting.cpp         # Sorting algorithm benchmarks
+│   │   ├── floyd_warshall.cpp  # Floyd-Warshall algorithm benchmarks
+│   │   ├── decision_tree.cpp   # Decision tree evaluation benchmarks
+│   │   ├── database_aggregation.cpp # Private database aggregation benchmarks
+│   │   ├── utils.cpp           # Utility functions for benchmarking
+│   │   └── utils.h             # Utility function declarations
+│   ├── build/                  # Build directory (created after building)
+│   │   ├── Makefile
+│   │   └── bin/
+│   │       ├── scheme-switching-benchmark
+│   │       └── decision_tree
+│   ├── benchmarklibs/          # Google Benchmark library (after installation)
+│   └── openfhelibs/           # OpenFHE library (after installation)
+└── encoding_switching/         # HElib encoding switching implementations
     ├── CMakeLists.txt          # CMake build configuration
-    ├── README.md               # Detailed scheme switching documentation
-    ├── run.sh                  # Build and run script
+    ├── README.md               # Detailed encoding switching documentation
     ├── src/
-    │   ├── workload.cpp        # Basic workload benchmarks
-    │   ├── workload.h          # Workload function declarations
+    │   ├── workload.cpp        # Basic workload benchmarks (3 patterns × 4 bit widths)
     │   ├── sorting.cpp         # Sorting algorithm benchmarks
     │   ├── floyd_warshall.cpp  # Floyd-Warshall algorithm benchmarks
     │   ├── decision_tree.cpp   # Decision tree evaluation benchmarks
     │   ├── database_aggregation.cpp # Private database aggregation benchmarks
-    │   ├── utils.cpp           # Utility functions for benchmarking
-    │   └── utils.h             # Utility function declarations
-    ├── build/                  # Build directory (created after building)
-    │   ├── Makefile
-    │   └── bin/
-    │       ├── scheme-switching-benchmark
-    │       └── decision_tree
-    ├── benchmarklibs/          # Google Benchmark library (after installation)
-    └── openfhelibs/           # OpenFHE library (after installation)
+    │   ├── bridge.cpp          # HE-Bridge encoding switching implementation
+    │   ├── bridge.h            # Bridge header
+    │   ├── tools.cpp           # Utility functions
+    │   ├── tools.h             # Utility headers
+    │   └── Ctxt_ext.cpp        # HElib extensions for encoding switching
+    └── build/                  # Build directory (created after building)
+        └── bin/
+            ├── workload
+            ├── sorting
+            ├── floyd_warshall
+            ├── decision_tree
+            └── database_aggregation
 ```
 
 ## Prerequisites
@@ -119,48 +143,135 @@ This artifact provides comprehensive benchmarks for evaluating the performance o
 
 ## Installation
 
-### TFHE-rs Installation
+This section provides step-by-step instructions for setting up all three FHE environments: TFHE (Rust), Scheme Switching (OpenFHE), and Encoding Switching (HElib).
 
-TFHE-rs is automatically handled by Cargo. No separate installation is required as it's specified in each project's `Cargo.toml` file.
+### Step 1: Install System Dependencies
 
-### OpenFHE Installation
+First, ensure you have the required system packages:
 
-1. **Clone OpenFHE repository:**
-   ```bash
-   git clone https://github.com/openfheorg/openfhe-development.git
-   ```
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y build-essential cmake git curl pkg-config \
+    libssl-dev m4 libgmp-dev libntl-dev
 
-2. **Create installation directory:**
-   ```bash
-   mkdir -p openfhelibs
-   cd openfhe-development
-   ```
+# The packages provide:
+# - build-essential: GCC/G++ compiler
+# - cmake: Build system (version 3.16+)
+# - git: Version control
+# - curl: For downloading Rust
+# - libgmp-dev, libntl-dev: Required by HElib
+# - m4: Required by NTL/HElib
+```
 
-3. **Build OpenFHE:**
-   ```bash
-   mkdir build
-   cd build
-   cmake -DCMAKE_INSTALL_PREFIX=/path/to/your/project/openfhelibs ..
-   make -j$(nproc)
-   make install
-   ```
+### Step 2: Install Rust (for TFHE benchmarks)
 
-4. **Install Google Benchmark (required for some benchmarks):**
-   ```bash
-   cd /path/to/your/project
-   git clone https://github.com/google/benchmark.git
-   cd benchmark
-   git clone https://github.com/google/googletest.git
-   mkdir -p benchmarklibs
-   cmake -E make_directory build
-   cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-     -DCMAKE_INSTALL_PREFIX=/path/to/your/project/benchmarklibs \
-     -DBENCHMARK_DOWNLOAD_DEPENDENCIES=ON
-   cmake --build build --config Release
-   cmake --install build --config Release
-   ```
+Install Rust using rustup (official installer):
 
-**Note:** Replace `/path/to/your/project` with the actual path to this repository.
+```bash
+# Install rustup and Rust toolchain
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Follow the prompts (choose default installation)
+# After installation, configure your current shell:
+source $HOME/.cargo/env
+
+# Verify installation
+rustc --version  # Should be 1.70 or higher
+cargo --version
+```
+
+**TFHE-rs library** is automatically downloaded and compiled by Cargo when you build the TFHE benchmarks (no manual installation needed).
+
+### Step 3: Install OpenFHE (for Scheme Switching benchmarks)
+
+Navigate to your artifact directory and install OpenFHE:
+
+```bash
+# Clone OpenFHE repository
+git clone https://github.com/openfheorg/openfhe-development.git
+cd openfhe-development
+
+# Create build directory
+mkdir build && cd build
+
+# Configure with CMake (replace /path/to/Artifact with actual path)
+cmake -DCMAKE_INSTALL_PREFIX=$(pwd)/../../openfhelibs \
+      -DCMAKE_BUILD_TYPE=Release \
+      ..
+
+# Build and install (use all CPU cores)
+make -j$(nproc)
+make install
+
+# Return to artifact root
+cd ../..
+```
+
+**Verify OpenFHE installation:**
+```bash
+ls openfhelibs/include/openfhe  # Should show OpenFHE headers
+ls openfhelibs/lib              # Should show libOPENFHE*.so files
+```
+
+### Step 4: Install HElib (for Encoding Switching benchmarks)
+
+Install HElib and the HE-Bridge framework:
+
+```bash
+# Clone HElib repository
+git clone https://github.com/homenc/HElib.git
+cd HElib
+
+# Create build directory
+mkdir build && cd build
+
+# Configure with CMake (installs to ../helib_install)
+cmake -DCMAKE_INSTALL_PREFIX=$(pwd)/../../helib_install \
+      -DCMAKE_BUILD_TYPE=Release \
+      ..
+
+# Build and install
+make -j$(nproc)
+make install
+
+# Return to artifact root
+cd ../..
+```
+
+**Clone HE-Bridge framework:**
+```bash
+# HE-Bridge provides encoding switching utilities
+git clone https://github.com/UCF-Lou-Lab-PET/HE-Bridge.git
+```
+
+**Verify HElib installation:**
+```bash
+ls helib_install/include/helib  # Should show HElib headers
+ls helib_install/lib            # Should show libhelib.a
+```
+
+### Installation Summary
+
+After completing all steps, your directory structure should look like:
+
+```
+Artifact/
+├── openfhe-development/        # OpenFHE source (can be removed after install)
+├── openfhelibs/                # OpenFHE installation
+├── HElib/                      # HElib source (can be removed after install)
+├── helib_install/              # HElib installation
+├── HE-Bridge/                  # HE-Bridge framework source
+├── rust/tfhe-example/          # TFHE benchmarks (Rust)
+├── scheme_switching/           # Scheme switching benchmarks (OpenFHE)
+└── encoding_switching/         # Encoding switching benchmarks (HElib)
+```
+
+**Disk space requirements:**
+- OpenFHE source + build: ~2GB
+- HElib source + build: ~1.5GB
+- Rust toolchain: ~1GB
+- Total: ~5-6GB (can reduce by removing source directories after installation)
 
 ## TFHE Part
 
@@ -360,13 +471,97 @@ Total time: 3.813 s
 =====================================
 ```
 
+## Encoding Switching Part
+
+The encoding switching part implements the same benchmarks using HElib with the HE-Bridge framework. Unlike scheme switching which alternates between different FHE schemes (CKKS ↔ FHEW), encoding switching works within the FV scheme by switching between different plaintext encodings (FV ↔ beFV) for efficient encrypted comparisons.
+
+**Key Features:**
+- Uses FV encoding (plaintext modulus p^r) for arithmetic operations
+- Uses beFV encoding (plaintext modulus p) for comparison operations via polynomial interpolation
+- No expensive scheme switching overhead - only encoding switching within FV
+- Supports 6, 8, 12, and 16-bit integer operations with optimized parameters
+
+### Building
+
+**Prerequisites:** Ensure HElib and HE-Bridge are installed (see Step 4 in Installation section above).
+
+Build all encoding switching benchmarks:
+
+```bash
+cd encoding_switching
+mkdir -p build && cd build
+cmake ..
+make -j$(nproc)
+```
+
+This will create five executables in `build/bin/`:
+- `workload` - Tests all 3 workload patterns with 4 bit widths
+- `decision_tree` - Decision tree evaluation
+- `sorting` - Sorting algorithm
+- `floyd_warshall` - All-pairs shortest path
+- `database_aggregation` - Private database queries
+
+### Running
+
+Execute the encoding switching benchmarks from the build directory:
+
+```bash
+cd encoding_switching/build/bin
+
+# Run workload benchmarks (tests all 3 patterns with 6, 8, 12, 16-bit)
+./workload
+
+# Run other benchmarks
+./decision_tree
+./sorting
+./floyd_warshall
+./database_aggregation
+```
+
+### Output Format
+
+#### Workloads with Encoding Switching:
+```
+================================================================================
+HE-Bridge Encoding Switching Workload Benchmarks
+================================================================================
+
+Workload-1: (a*b) compare c
+--------------------------------------------------------------------------------
+Bit Width      Parameters (p, r)        Time                Status
+--------------------------------------------------------------------------------
+6-bit          p=3, r=4                 2 s                 ✓
+8-bit          p=17, r=2                2 s                 ✓
+12-bit         p=67, r=2                20 s                ✓
+16-bit         p=257, r=2               87 s                ✓
+```
+
+#### Decision Tree with Encoding Switching:
+```
+================================================================================
+HE-Bridge Encoding Switching Decision Tree Evaluation
+================================================================================
+
+Parameters: m=13201, p=17, r=2, bits=256
+
+Decision Tree Benchmark
+--------------------------------------------------------------------------------
+Tree Depth     Bit Width      Time                Status
+--------------------------------------------------------------------------------
+2              9              15 s                ✓
+4              9              1.2 m               ✓
+6              9              8.5 m               ✓
+```
+
 ## Troubleshooting
 
 ### Common Issues:
 
 1. **TFHE compilation errors**: Ensure Rust 1.70+ is installed
-2. **OpenFHE not found**: Verify OpenFHE installation path in CMake configuration
-3. **Memory errors**: Large configurations may exceed available RAM
+2. **OpenFHE not found**: Verify OpenFHE installation path in `scheme_switching/CMakeLists.txt`
+3. **HElib not found**: Verify HElib installation path in `encoding_switching/CMakeLists.txt` (should point to `helib_install/`)
+4. **Memory errors**: Large configurations may exceed available RAM (16GB+ recommended)
+5. **Long execution times**: This is expected - some benchmarks take hours to complete, especially for larger parameters
 
 ### Debug Mode:
 ```bash

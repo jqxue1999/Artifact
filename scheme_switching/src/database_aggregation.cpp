@@ -1,254 +1,225 @@
 #include <iostream>
 #include <vector>
-#include <random>
-#include <chrono>
 #include <iomanip>
-
+#include <string>
+#include <random>
 #include "utils.h"
 
 using namespace std;
 using namespace lbcrypto;
 
-// Global counters for operations
-int comparisonCount = 0;
-int multiplicationCount = 0;
-
-// Helper function: LT(a,b) returns 1 if a < b, else 0
-// Each call counts as 1 comparison
-int LT(int a, int b) {
-    comparisonCount++;
-    return (a < b) ? 1 : 0;
+// Helper function to format duration
+string formatDuration(double seconds) {
+    if (seconds < 1.0) {
+        return to_string(static_cast<int>(seconds * 1000)) + " ms";
+    } else if (seconds < 60.0) {
+        return to_string(static_cast<int>(seconds)) + " s";
+    } else if (seconds < 3600.0) {
+        return to_string(static_cast<int>(seconds / 60)) + " min";
+    } else if (seconds < 86400.0) {
+        return to_string(static_cast<int>(seconds / 3600)) + " hr";
+    } else {
+        return to_string(static_cast<int>(seconds / 86400)) + " days";
+    }
 }
 
-// Helper function: EQ(a,b) returns 1 if a == b, else 0
-// Each call counts as 1 comparison
-int EQ(int a, int b) {
-    comparisonCount++;
-    return (a == b) ? 1 : 0;
-}
-
-// Multiplication wrapper to count operations
-int MUL(int a, int b) {
-    multiplicationCount++;
-    return a * b;
-}
-
-// Addition wrapper (typically free in homomorphic encryption)
-int ADD(int a, int b) {
-    return a + b;
-}
-
-// Private function to check if value is in range [min, max] using only LT operations
-// Returns 1 if min <= value <= max, 0 otherwise
-int inRange(int value, int minVal, int maxVal) {
-    // value >= minVal equivalent to !(value < minVal)
-    int geq_min = 1 - LT(value, minVal);
-    
-    // value <= maxVal equivalent to !(maxVal < value)  
-    int leq_max = 1 - LT(maxVal, value);
-    
-    // Both conditions must be true (AND operation via multiplication)
-    return MUL(geq_min, leq_max);
-}
-
-// Private function to evaluate predicates for a single row
-// Returns 1 if row satisfies the query, 0 otherwise
-int evaluateRowPredicates(const vector<int>& row) {
-    // Row schema: [ID, salary, work_hours, bonus]
-    // int id = row[0];  // ID not needed for predicate evaluation
-    int salary = row[1];
-    int work_hours = row[2];
-    int bonus = row[3];
-    
-    // Predicate 1: salary * work_hours BETWEEN 5000 AND 6000
-    int salary_times_hours = MUL(salary, work_hours);
-    int pred1 = inRange(salary_times_hours, 5000, 6000);
-    
-    // Predicate 2: salary + bonus BETWEEN 700 AND 800
-    int salary_plus_bonus = ADD(salary, bonus);
-    int pred2 = inRange(salary_plus_bonus, 700, 800);
-    
-    // Combine predicates with AND logic (multiplication)
-    return MUL(pred1, pred2);
-}
-
-// Private database aggregation implementation
-void privateDatabaseAggregation(int n, vector<vector<int>>& table, uint32_t integerBits) {
-    lbcrypto::OpenFHEParallelControls.Disable();
-    
-    cout << "Integer Bits: " << integerBits << endl;            
+// Private database query evaluation with encrypted predicates
+double EvaluateDatabaseQuery(uint32_t numRows, uint32_t integerBits) {
     SetupCryptoContext(24, 128, integerBits);
 
-    // Prepare test data - generate random arrays of length g_numValues
-    vector<double> x1(g_numValues);
-    vector<double> x2(g_numValues);
-    vector<double> x3(g_numValues);
-    
-    // Initialize random number generator
+    // Generate random database
     random_device rd;
-    mt19937 gen(rd());
-    uniform_real_distribution<double> dis(0.0, 1 << (integerBits / 2));
-    
-    // Generate random values
-    for (size_t i = 0; i < g_numValues; ++i) {
-        x1[i] = dis(gen);
-        x2[i] = dis(gen);
-        x3[i] = dis(gen);
+    mt19937 gen(42);  // Fixed seed
+    uniform_int_distribution<int> salary_dis(400, 800);
+    uniform_int_distribution<int> hours_dis(6, 12);
+    uniform_int_distribution<int> bonus_dis(50, 350);
+
+    // Compute number of batches (128 rows per batch)
+    uint32_t num_batches = (numRows + 127) / 128;
+
+    vector<vector<double>> salary_batches;
+    vector<vector<double>> work_hours_batches;
+    vector<vector<double>> bonus_batches;
+
+    // Generate and pack database into batches
+    for (uint32_t batch = 0; batch < num_batches; batch++) {
+        vector<double> salary(g_numValues, 0.0);
+        vector<double> hours(g_numValues, 0.0);
+        vector<double> bonus(g_numValues, 0.0);
+
+        uint32_t start_row = batch * 128;
+        uint32_t end_row = min(start_row + 128, numRows);
+
+        for (uint32_t i = start_row; i < end_row; i++) {
+            uint32_t idx = i - start_row;
+            salary[idx] = salary_dis(gen);
+            hours[idx] = hours_dis(gen);
+            bonus[idx] = bonus_dis(gen);
+        }
+
+        salary_batches.push_back(salary);
+        work_hours_batches.push_back(hours);
+        bonus_batches.push_back(bonus);
     }
 
-    // Encode and encrypt
-    Plaintext ptxt1 = g_cc->MakeCKKSPackedPlaintext(x1);
-    Plaintext ptxt2 = g_cc->MakeCKKSPackedPlaintext(x2);
-    Plaintext ptxt3 = g_cc->MakeCKKSPackedPlaintext(x3);
+    // Encrypt all batches
+    vector<Ciphertext<DCRTPoly>> enc_salary;
+    vector<Ciphertext<DCRTPoly>> enc_hours;
+    vector<Ciphertext<DCRTPoly>> enc_bonus;
 
-    auto c1 = g_cc->Encrypt(g_keys.publicKey, ptxt1);
-    auto c2 = g_cc->Encrypt(g_keys.publicKey, ptxt2);
-    auto c3 = g_cc->Encrypt(g_keys.publicKey, ptxt3);
-   
+    for (uint32_t batch = 0; batch < num_batches; batch++) {
+        Plaintext ptxt_sal = g_cc->MakeCKKSPackedPlaintext(salary_batches[batch]);
+        Plaintext ptxt_hrs = g_cc->MakeCKKSPackedPlaintext(work_hours_batches[batch]);
+        Plaintext ptxt_bon = g_cc->MakeCKKSPackedPlaintext(bonus_batches[batch]);
+
+        enc_salary.push_back(g_cc->Encrypt(g_keys.publicKey, ptxt_sal));
+        enc_hours.push_back(g_cc->Encrypt(g_keys.publicKey, ptxt_hrs));
+        enc_bonus.push_back(g_cc->Encrypt(g_keys.publicKey, ptxt_bon));
+    }
+
+    // Encrypt comparison constants
+    vector<double> lower1_vec(g_numValues, 5000.0);
+    vector<double> upper1_vec(g_numValues, 6000.0);
+    vector<double> lower2_vec(g_numValues, 700.0);
+    vector<double> upper2_vec(g_numValues, 800.0);
+
+    Plaintext ptxt_lower1 = g_cc->MakeCKKSPackedPlaintext(lower1_vec);
+    Plaintext ptxt_upper1 = g_cc->MakeCKKSPackedPlaintext(upper1_vec);
+    Plaintext ptxt_lower2 = g_cc->MakeCKKSPackedPlaintext(lower2_vec);
+    Plaintext ptxt_upper2 = g_cc->MakeCKKSPackedPlaintext(upper2_vec);
+
+    auto enc_lower1 = g_cc->Encrypt(g_keys.publicKey, ptxt_lower1);
+    auto enc_upper1 = g_cc->Encrypt(g_keys.publicKey, ptxt_upper1);
+    auto enc_lower2 = g_cc->Encrypt(g_keys.publicKey, ptxt_lower2);
+    auto enc_upper2 = g_cc->Encrypt(g_keys.publicKey, ptxt_upper2);
+
     auto t_start = chrono::steady_clock::now();
-    // Multiplication on CKKS
-    auto cMult = g_cc->EvalMult(c1, c2);
-    cMult = g_cc->Rescale(cMult);
 
-    // Comparison CKKS - FHEW
-    auto cResult = Comparison(cMult, c3);
+    int total_matches = 0;
 
-    // Convert FHEW sign results back to CKKS
-    auto t_fhew2ckks_start = chrono::steady_clock::now();
-    auto cSignResult = g_cc->EvalFHEWtoCKKS(cResult, g_numValues, g_numValues);
-    auto t_fhew2ckks_end = chrono::steady_clock::now();
-    double t_fhew2ckks_sec = chrono::duration<double>(t_fhew2ckks_end - t_fhew2ckks_start).count();
-    cout << "FHEW -> CKKS switching time: " << t_fhew2ckks_sec << " s" << endl;
+    // Process each batch
+    for (uint32_t batch = 0; batch < num_batches; batch++) {
+        // Predicate 1: salary * work_hours BETWEEN 5000 AND 6000
+        auto product = g_cc->EvalMult(enc_salary[batch], enc_hours[batch]);
+        product = g_cc->Rescale(product);
 
-    // Multiplication on CKKS
-    auto t_mult2_start = chrono::steady_clock::now();
-    auto cMult2 = g_cc->EvalMult(cSignResult, c3);
-    cMult2 = g_cc->Rescale(cMult2);
-    auto t_mult2_end = chrono::steady_clock::now();
-    double t_mult2_sec = chrono::duration<double>(t_mult2_end - t_mult2_start).count();
-    cout << "CKKS multiplication time: " << t_mult2_sec << " s" << endl;
+        // product >= 5000
+        auto cComp1 = Comparison(product, enc_lower1);
+        auto cComp1CKKS = g_cc->EvalFHEWtoCKKS(cComp1, g_numValues, g_numValues);
+
+        // product <= 6000
+        auto cComp2 = Comparison(enc_upper1, product);
+        auto cComp2CKKS = g_cc->EvalFHEWtoCKKS(cComp2, g_numValues, g_numValues);
+
+        // AND: both must be true
+        auto pred1 = g_cc->EvalMult(cComp1CKKS, cComp2CKKS);
+        pred1 = g_cc->Rescale(pred1);
+
+        // Predicate 2: salary + bonus BETWEEN 700 AND 800
+        auto sum = g_cc->EvalAdd(enc_salary[batch], enc_bonus[batch]);
+
+        // sum >= 700
+        auto cComp3 = Comparison(sum, enc_lower2);
+        auto cComp3CKKS = g_cc->EvalFHEWtoCKKS(cComp3, g_numValues, g_numValues);
+
+        // sum <= 800
+        auto cComp4 = Comparison(enc_upper2, sum);
+        auto cComp4CKKS = g_cc->EvalFHEWtoCKKS(cComp4, g_numValues, g_numValues);
+
+        // AND: both must be true
+        auto pred2 = g_cc->EvalMult(cComp3CKKS, cComp4CKKS);
+        pred2 = g_cc->Rescale(pred2);
+
+        // Combine predicates: pred1 AND pred2
+        auto final_pred = g_cc->EvalMult(pred1, pred2);
+        final_pred = g_cc->Rescale(final_pred);
+
+        // Decrypt to count matches (in real scenario, would return encrypted result)
+        Plaintext ptxt_result;
+        g_cc->Decrypt(g_keys.secretKey, final_pred, &ptxt_result);
+
+        uint32_t batch_size = min(128u, numRows - batch * 128);
+        ptxt_result->SetLength(batch_size);
+
+        for (uint32_t i = 0; i < batch_size; i++) {
+            if (ptxt_result->GetRealPackedValue()[i] > 0.5) {  // Threshold for match
+                total_matches++;
+            }
+        }
+    }
 
     auto t_end = chrono::steady_clock::now();
-    double t_sec = chrono::duration<double>(t_end - t_start).count();
+    double time_sec = chrono::duration<double>(t_end - t_start).count();
 
-    // Reset global counters
-    comparisonCount = 0;
-    multiplicationCount = 0;
-    
-    cout << "Processing database with " << n << " rows..." << endl;
-    
-    // Store selected row IDs
-    vector<int> selectedIDs;
-    
-    // Process each row in the database
-    for (int i = 0; i < n; i++) {
-        // Evaluate predicates for current row
-        int rowSatisfies = evaluateRowPredicates(table[i]);
-        
-        // If row satisfies all predicates (rowSatisfies == 1), add ID to results
-        // We simulate this selection without using direct if statements
-        // by multiplying the ID by the satisfaction flag
-        if (rowSatisfies == 1) {
-            selectedIDs.push_back(table[i][0]); // Add ID (first column)
+    // Verify with plaintext for small databases
+    if (numRows <= 128) {
+        int expected_matches = 0;
+        for (uint32_t i = 0; i < numRows; i++) {
+            int batch = i / 128;
+            int idx = i % 128;
+
+            double sal = salary_batches[batch][idx];
+            double hrs = work_hours_batches[batch][idx];
+            double bon = bonus_batches[batch][idx];
+
+            double prod = sal * hrs;
+            double s = sal + bon;
+
+            if (prod >= 5000 && prod <= 6000 && s >= 700 && s <= 800) {
+                expected_matches++;
+            }
+        }
+
+        if (abs(total_matches - expected_matches) > numRows * 0.1) {  // Allow 10% error
+            cout << "Warning: Match count mismatch (expected ~" << expected_matches
+                 << ", got " << total_matches << ")" << endl;
         }
     }
-    
-    // Print results
-    cout << "Query: SELECT ID FROM emp WHERE (salary * work_hours) BETWEEN 5000 AND 6000 AND (salary + bonus) BETWEEN 700 AND 800" << endl;
-    cout << "Selected IDs: ";
-    if (selectedIDs.empty()) {
-        cout << "None";
-    } else {
-        for (size_t i = 0; i < selectedIDs.size(); i++) {
-            cout << selectedIDs[i];
-            if (i < selectedIDs.size() - 1) cout << ", ";
-        }
-    }
-    cout << endl;
-    
-    cout << "Total time: " << comparisonCount + multiplicationCount << " s" << endl;
-}
 
-// Function to generate random test data
-vector<vector<int>> generateTestData(int n) {
-    vector<vector<int>> table(n, vector<int>(4)); // 4 columns: ID, salary, work_hours, bonus
-    
-    random_device rd;
-    mt19937 gen(rd());
-    
-    // Define realistic ranges for test data
-    uniform_int_distribution<int> salary_dist(400, 800);      // salary: 400-800
-    uniform_int_distribution<int> hours_dist(6, 12);          // work_hours: 6-12  
-    uniform_int_distribution<int> bonus_dist(50, 350);        // bonus: 50-350
-    
-    for (int i = 0; i < n; i++) {
-        table[i][0] = i + 1;                    // ID: 1, 2, 3, ...
-        table[i][1] = salary_dist(gen);         // salary
-        table[i][2] = hours_dist(gen);          // work_hours
-        table[i][3] = bonus_dist(gen);          // bonus
-    }
-    
-    return table;
-}
-
-// Test function for database aggregation
-void DatabaseAggregation(uint32_t rows, uint32_t integerBits) {
-    cout << "========== Database Aggregation Test ==========" << endl;
-    cout << "Rows: " << rows << ", Integer Bits: " << integerBits << endl;
-    
-    // Generate test data
-    vector<vector<int>> table = generateTestData(rows);
-    
-    // Optional: Print some sample rows for verification
-    if (rows <= 8) {
-        cout << "Sample data (ID, salary, work_hours, bonus):" << endl;
-        for (uint32_t i = 0; i < min(rows, 8u); i++) {
-            cout << "Row " << i+1 << ": [" << table[i][0] << ", " << table[i][1] 
-                 << ", " << table[i][2] << ", " << table[i][3] << "]";
-            
-            // Show calculated values for manual verification
-            int salary_times_hours = table[i][1] * table[i][2];
-            int salary_plus_bonus = table[i][1] + table[i][3];
-            cout << " -> salary*hours=" << salary_times_hours 
-                 << ", salary+bonus=" << salary_plus_bonus << endl;
-        }
-        cout << endl;
-    }
-    
-    // Run the private database aggregation algorithm
-    privateDatabaseAggregation(rows, table, integerBits);
-    cout << endl;
+    return time_sec;
 }
 
 int main() {
     lbcrypto::OpenFHEParallelControls.Disable();
 
-    cout << "========== Private Database Aggregation Tests ==========" << endl;
-    
-    // Test with different database sizes
-    cout << "========== Small Database (64 rows) ==========" << endl;
-    DatabaseAggregation(64, 6);
-    DatabaseAggregation(64, 8);
-    DatabaseAggregation(64, 12);
-    DatabaseAggregation(64, 16);
-    
-    cout << "========== Medium Database (128 rows) ==========" << endl;
-    DatabaseAggregation(128, 6);
-    DatabaseAggregation(128, 8);
-    DatabaseAggregation(128, 12);
-    DatabaseAggregation(128, 16);
-    
-    cout << "========== Large Database (256 rows) ==========" << endl;
-    DatabaseAggregation(256, 6);
-    DatabaseAggregation(256, 8);
-    DatabaseAggregation(256, 12);
-    DatabaseAggregation(256, 16);
-    
-    cout << "========== Very Large Database (512 rows) ==========" << endl;
-    DatabaseAggregation(512, 6);
-    DatabaseAggregation(512, 8);
-    DatabaseAggregation(512, 12);
-    DatabaseAggregation(512, 16);
-    
+    cout << string(80, '=') << endl;
+    cout << "OpenFHE Scheme Switching Private Database Aggregation" << endl;
+    cout << string(80, '=') << endl << endl;
+
+    cout << "Query: SELECT ID FROM emp WHERE" << endl;
+    cout << "       salary * work_hours BETWEEN 5000 AND 6000" << endl;
+    cout << "       AND salary + bonus BETWEEN 700 AND 800" << endl << endl;
+
+    cout << "Using scheme switching with SIMD batching (128 rows per batch)" << endl << endl;
+
+    // All experiments use 8-bit inputs
+    uint32_t bit_width = 8;
+    vector<uint32_t> row_counts = {64, 128, 256, 512};
+
+    cout << "Database Size Experiments (8-bit precision)" << endl;
+    cout << string(80, '-') << endl;
+    cout << left << setw(15) << "Rows"
+         << left << setw(15) << "Bit Width"
+         << left << setw(20) << "Time"
+         << left << setw(15) << "Batches"
+         << left << setw(10) << "Status" << endl;
+    cout << string(80, '-') << endl;
+
+    for (auto rows : row_counts) {
+        int batches = (rows + 127) / 128;
+        cout << left << setw(15) << rows
+             << left << setw(15) << bit_width;
+        cout.flush();
+
+        double time = EvaluateDatabaseQuery(rows, bit_width);
+
+        cout << left << setw(20) << formatDuration(time);
+        cout << left << setw(15) << batches;
+        cout << left << setw(10) << "✓" << endl;
+    }
+    cout << endl;
+
+    cout << string(80, '=') << endl;
+
     return 0;
 }

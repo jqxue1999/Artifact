@@ -1,16 +1,61 @@
 # IDE and editor files
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Build directories
 build/
+target/
 
-# Library directories
+# Library directories and installations
 openfhelibs/
 benchmarklibs/
+helib_install/
+
+# External dependencies (cloned during installation)
+HElib/
+HE-Bridge/
+benchmark/
+openfhe-development/
+
+# Compiled files
+*.o
+*.a
+*.so
+*.dylib
+*.rlib
+
+# Executables
+*.exe
+workload
+decision_tree
+sorting
+floyd_warshall
+database_aggregation
+
+# Rust build artifacts
+Cargo.lock
+**/.cargo/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Python artifacts (if any)
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Temporary files
+*.log
+*.tmp
+.DS_Store
 
 # Setup script
 setup.sh
-
-# External dependencies
-benchmark/
-openfhe-development/
