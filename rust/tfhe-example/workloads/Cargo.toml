@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-tfhe = { version = "~1.0.1", features = ["boolean", "shortint", "integer"] }
+tfhe = { version = "*", features = ["boolean", "shortint", "integer", "extended-types"] }
 bincode = "1.3"
 serde = { version = "1.0", features = ["derive"] }
