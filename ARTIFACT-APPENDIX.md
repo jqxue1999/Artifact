@@ -315,6 +315,6 @@ This artifact is submitted for the **"Available"** badge, which requires:
 
 **For full reproduction of paper results**, see:
 - `README.md` - Complete documentation with expected outputs
+- `rust/tfhe-example/README.md` - Detailed TFHE (bit-wise FHE) documentation
 - `scheme_switching/README.md` - Detailed scheme switching documentation
 - `encoding_switching/README.md` - Detailed encoding switching documentation
-- `CLAUDE.md` - Additional implementation guidance for developers
