@@ -1,6 +1,6 @@
 # SoK: Can Fully Homomorphic Encryption Support General AI Computation? A Functional and Cost Analysis - Artifact
 
-This repository contains the artifact for the paper "SoK: Can Fully Homomorphic Encryption Support General AI Computation? A Functional and Cost Analysis". The artifact consists of two main parts: **TFHE benchmarks** implemented in Rust and **scheme switching benchmarks** implemented in C++ with OpenFHE.
+This repository contains the artifact for the paper "SoK: Can Fully Homomorphic Encryption Support General AI Computation? A Functional and Cost Analysis". The artifact consists of three main parts: **TFHE benchmarks** implemented in Rust, **scheme switching benchmarks** implemented in C++ with OpenFHE, and **encoding switching benchmarks** implemented in C++ with HElib.
 
 ## Table of Contents
 
@@ -10,10 +10,15 @@ This repository contains the artifact for the paper "SoK: Can Fully Homomorphic 
 - [Installation](#installation)
   - [TFHE-rs Installation](#tfhe-rs-installation)
   - [OpenFHE Installation](#openfhe-installation)
+  - [HElib Installation](#helib-installation)
 - [TFHE Part](#tfhe-part)
   - [Running Benchmarks](#running-benchmarks)
   - [Expected Output](#expected-output)
 - [Scheme Switching Part](#scheme-switching-part)
+  - [Building](#building)
+  - [Running](#running)
+  - [Expected Output](#output-format)
+- [Encoding Switching Part](#encoding-switching-part)
   - [Building](#building)
   - [Running](#running)
   - [Expected Output](#output-format)
@@ -442,21 +447,19 @@ Execute the scheme switching benchmarks:
 
 ### Output Format
 
-#### Workloads with Scheme Switching Breakdown:
+#### Workloads with Scheme Switching (8-bit precision):
 ```
-=== Workload-1: (a*b) compare c ===
-CKKS to FHEW Switching time: 2.456 s
-Comparison operation time: 0.234 s  
-FHEW to CKKS Switching time: 1.876 s
-Total time: 4.566 s
-=====================================
+Workload-1: (a*b) compare c
+Total time: 32.1 s
 
-=== Workload-2: (a compare b) * c ===
-CKKS to FHEW Switching time: 2.123 s
-Multiplication operation time: 0.156 s
-FHEW to CKKS Switching time: 1.654 s  
-Total time: 3.933 s
-=====================================
+Workload-2: (a compare b) * c
+Total time: ~25 s
+
+Workload-3: (a*b) compare (c*d)
+Total time: ~40 s
+
+Note: Scheme switching becomes impractical for 12-bit and 16-bit inputs
+due to exponential growth in switching complexity.
 ```
 
 #### Applications with Scheme Switching:
@@ -530,10 +533,10 @@ Workload-1: (a*b) compare c
 --------------------------------------------------------------------------------
 Bit Width      Parameters (p, r)        Time                Status
 --------------------------------------------------------------------------------
-6-bit          p=3, r=4                 2 s                 ✓
-8-bit          p=17, r=2                2 s                 ✓
-12-bit         p=67, r=2                20 s                ✓
-16-bit         p=257, r=2               87 s                ✓
+6-bit          p=3, r=4                 ~8 s                ✓
+8-bit          p=17, r=2                15.5 s              ✓
+12-bit         p=67, r=2                23.0 s              ✓
+16-bit         p=257, r=2               46.9 s              ✓
 ```
 
 #### Decision Tree with Encoding Switching:
