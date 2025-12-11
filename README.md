@@ -4,6 +4,9 @@ This repository contains the artifact for the paper "SoK: Can Fully Homomorphic 
 
 ## Table of Contents
 
+- [Quick Start](#quick-start)
+  - [Option 1: Docker (Recommended)](#option-1-docker-recommended---easiest-setup)
+  - [Option 2: Native Installation](#option-2-native-installation-manual-setup)
 - [Overview](#overview)
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
@@ -22,6 +25,10 @@ This repository contains the artifact for the paper "SoK: Can Fully Homomorphic 
   - [Building](#building)
   - [Running](#running)
   - [Expected Output](#output-format)
+- [Automated Helper Scripts](#automated-helper-scripts)
+- [Docker Setup](#docker-setup)
+- [Troubleshooting](#troubleshooting)
+- [Citation](#citation)
 
 ## Overview
 
@@ -136,6 +143,65 @@ This artifact provides comprehensive benchmarks for evaluating the performance o
             ├── decision_tree
             └── database_aggregation
 ```
+
+## Quick Start
+
+We provide **two ways** to run the artifact: using **Docker** (recommended for reviewers) or **native installation**.
+
+### Option 1: Docker (Recommended - Easiest Setup)
+
+Docker provides an isolated, reproducible environment with all dependencies pre-installed:
+
+```bash
+# 1. Build Docker image (45-90 minutes, one-time)
+docker-compose build
+
+# 2. Start container
+docker-compose up -d
+
+# 3. Enter container and run tests
+docker-compose exec fhe-artifact bash
+./verify_environment.sh
+./run_quick_tests.sh
+
+# 4. View results
+exit
+ls docker_results/
+```
+
+See **[DOCKER.md](DOCKER.md)** for complete Docker documentation.
+
+**Advantages:**
+- ✅ No manual dependency installation
+- ✅ Guaranteed reproducible environment
+- ✅ Easy cleanup (just remove container)
+- ✅ No conflicts with existing system packages
+
+### Option 2: Native Installation (Manual Setup)
+
+For users who prefer native installation or need maximum performance:
+
+```bash
+# 1. Verify your environment has all dependencies
+./verify_environment.sh
+
+# 2. Build all three FHE implementations
+./build_all.sh
+
+# 3. Run quick smoke tests (~5-10 minutes)
+./run_quick_tests.sh
+
+# 4. (Optional) Run full benchmark suite (~24-72 hours)
+./run_full_benchmarks.sh
+```
+
+These scripts provide:
+- **Environment verification**: Checks that all required dependencies are installed
+- **Automated building**: Compiles all three FHE implementations
+- **Quick testing**: Fast smoke tests to verify correctness
+- **Full benchmarks**: Complete evaluation matching paper results
+
+See [Installation](#installation) and [Automated Helper Scripts](#automated-helper-scripts) sections below for detailed documentation.
 
 ## Prerequisites
 
@@ -555,6 +621,165 @@ Tree Depth     Bit Width      Time                Status
 4              9              1.2 m               ✓
 6              9              8.5 m               ✓
 ```
+
+## Automated Helper Scripts
+
+This artifact includes four automated scripts to simplify environment verification, building, and testing.
+
+### 1. Environment Verification (`verify_environment.sh`)
+
+Verifies that all required dependencies are installed.
+
+**What it checks:**
+- System tools (GCC, CMake, Git, etc.)
+- Required libraries (GMP, NTL)
+- Rust toolchain
+- OpenFHE installation
+- HElib installation
+- HE-Bridge framework
+- Project structure
+
+**Usage:**
+```bash
+./verify_environment.sh
+```
+
+**Output:** Checklist showing ✓ or ✗ for each component
+
+**Expected runtime:** < 1 minute
+
+### 2. Build All (`build_all.sh`)
+
+Builds all three FHE implementations automatically.
+
+**What it builds:**
+- All 5 TFHE Rust projects (workloads, sorting, floyd, decision_tree, private_db)
+- Scheme switching C++ project
+- Encoding switching C++ project
+
+**Usage:**
+```bash
+./build_all.sh
+```
+
+**Output:** Build status for each component with colored indicators
+
+**Expected runtime:** 10-20 minutes (first build includes dependency downloads)
+
+### 3. Quick Tests (`run_quick_tests.sh`)
+
+Runs fast smoke tests to verify all implementations work correctly.
+
+**What it tests:**
+- TFHE workloads (limited output)
+- Scheme switching workload
+- Encoding switching workload
+
+**Usage:**
+```bash
+./run_quick_tests.sh
+```
+
+**Output:** Test results saved to `quick_test_results/` directory
+
+**Expected runtime:** 5-10 minutes
+
+### 4. Full Benchmarks (`run_full_benchmarks.sh`)
+
+Runs complete benchmark suite matching all paper results.
+
+**Warning:** This takes 24-72 hours to complete!
+
+**What it runs:**
+- All TFHE benchmarks (all bit widths, all applications)
+- All scheme switching benchmarks
+- All encoding switching benchmarks
+
+**Usage:**
+```bash
+./run_full_benchmarks.sh
+```
+
+**Output:** Individual logs and summary in `full_benchmark_results/` directory
+
+**Expected runtime:** 24-72 hours (hardware dependent)
+
+### Script Features
+
+All scripts include:
+- **Color-coded output**: Green (✓) for success, Red (✗) for failure, Yellow (⚠) for warnings
+- **Progress indicators**: Shows what's currently running
+- **Result logging**: Saves outputs to timestamped files
+- **Error handling**: Continues on non-critical failures
+- **Summary reports**: Final status of all operations
+
+## Docker Setup
+
+For complete, isolated environment with all dependencies pre-installed, we provide Docker support.
+
+### Quick Docker Start
+
+```bash
+# Build image (45-90 minutes, one-time)
+docker-compose build
+
+# Start container
+docker-compose up -d
+
+# Enter container
+docker-compose exec fhe-artifact bash
+
+# Inside container: run tests
+./verify_environment.sh
+./run_quick_tests.sh
+```
+
+### What Docker Provides
+
+✅ **Complete environment**: Ubuntu 22.04 + all dependencies + pre-built libraries
+✅ **Reproducible**: Same environment across all machines
+✅ **Isolated**: No conflicts with your system
+✅ **Pre-compiled**: All benchmarks ready to run
+
+### Docker Files
+
+- **`Dockerfile`**: Builds the complete FHE environment
+- **`docker-compose.yml`**: Easy container management with resource limits
+- **`DOCKER.md`**: Complete Docker documentation (100+ lines)
+- **`.dockerignore`**: Optimizes build context
+
+### Docker Image Details
+
+| Component | Status |
+|-----------|--------|
+| Base System | Ubuntu 22.04 |
+| System Tools | GCC, CMake, Git, etc. |
+| Rust | Latest stable |
+| OpenFHE | Pre-built |
+| HElib | Pre-built |
+| HE-Bridge | Included |
+| All Benchmarks | Pre-compiled |
+| **Total Size** | ~8-10GB |
+| **Build Time** | 45-90 minutes |
+
+### Accessing Results
+
+Results persist in mounted volumes:
+
+```bash
+# On host machine (outside container)
+ls docker_results/       # All test results
+ls docker_logs/          # Execution logs
+```
+
+### Full Documentation
+
+See **[DOCKER.md](DOCKER.md)** for:
+- Detailed setup instructions
+- Advanced usage (custom resources, development mode)
+- Troubleshooting Docker-specific issues
+- Running full benchmarks in Docker
+- Cleanup and maintenance
 
 ## Troubleshooting
 

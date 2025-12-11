@@ -4,7 +4,7 @@ Paper title: **SoK: Can Fully Homomorphic Encryption Support General AI Computat
 
 <!-- Requested Badge(s):
   - [x] **Available**
-  - [ ] **Functional**
+  - [x] **Functional**
   - [ ] **Reproduced** -->
 
 ## Description
@@ -256,9 +256,7 @@ make
 
 **If all three tests complete successfully, the environment is correctly configured.**
 
-## Basic Requirements (Optional - for "Functional" badge)
-
-While this artifact is submitted for the **"Available"** badge only, we provide the following information for researchers interested in reproducing results.
+## Basic Requirements
 
 ### Hardware Requirements
 
@@ -304,17 +302,357 @@ While this artifact is submitted for the **"Available"** badge only, we provide 
 
 **Total: ~10GB**
 
-## Summary for "Available" Badge
+## Artifact Completeness
 
-This artifact is submitted for the **"Available"** badge, which requires:
-- ✅ Public availability via persistent repository (GitHub: https://github.com/jqxue1999/Artifact)
-- ✅ Zenodo DOI (to be assigned after paper acceptance)
-- ✅ Open-source license (MIT License included)
-- ✅ Clear relationship to paper's results (three FHE paradigms evaluated in paper)
-- ✅ No security/privacy risks (documented above)
+This section demonstrates that the artifact includes all key components described in the paper.
+
+### Paper Components vs. Artifact Mapping
+
+The paper (Section 6 and 7) evaluates three computationally general FHE methods:
+
+| Paper Component | Artifact Location | Status |
+|----------------|-------------------|--------|
+| **Bit-wise TFHE** (Section 3.1) | `rust/tfhe-example/` | ✅ Complete |
+| **Scheme Switching** (Section 3.1) | `scheme_switching/` | ✅ Complete |
+| **Encoding Switching** (Section 3.1) | `encoding_switching/` | ✅ Complete |
+
+### Workload Benchmarks (Section 6, Figure 2)
+
+| Workload | Description | TFHE | Scheme Switching | Encoding Switching |
+|----------|-------------|------|------------------|-------------------|
+| **Workload-1** | (a×b) compare c | ✅ | ✅ | ✅ |
+| **Workload-2** | (a compare b) × c | ✅ | ✅ | ✅ |
+| **Workload-3** | (a×b) compare (c×d) | ✅ | ✅ | ✅ |
+
+- TFHE: `rust/tfhe-example/workloads/src/benchmarks/`
+- Scheme Switching: `scheme_switching/src/workload.cpp`
+- Encoding Switching: `encoding_switching/src/workload.cpp`
+
+### Application Benchmarks (Section 7)
+
+| Application | Paper Section | TFHE | Scheme Switching | Encoding Switching |
+|------------|---------------|------|------------------|-------------------|
+| **Floyd-Warshall** | 7.3, Figure 4 | ✅ | ✅ | ✅ |
+| **Decision Tree** | 7.4, Figure 5 | ✅ | ✅ | ✅ |
+| **Sorting** | 7.5, Figure 7 | ✅ | ✅ | ✅ |
+| **Database Aggregation** | 7.6, Figure 8(b) | ✅ | ✅ | ✅ |
+| **Neural Network** | 7.7, Figure 8(a) | ❌ | ❌ | ❌ |
+
+**Note on Neural Network Implementation:**
+
+The neural network benchmarks (Section 7.7, Figure 8a) compare existing implementations from prior work (Falcon, LoLa, OPP-CNN, EVA, SHE, TFHE-DNN) rather than providing new implementations. We do not include these third-party implementations in our artifact because:
+
+1. They are available in their original repositories with their own licenses
+2. Including them would create complex dependency chains
+3. The paper's contribution is the systematic comparison, not the implementations themselves
+
+**References to original implementations:**
+- Falcon: https://github.com/snwagh/falcon-public
+- LoLa: https://github.com/microsoft/CryptoNets
+- OPP-CNN: [Available upon request from authors]
+- EVA: https://github.com/microsoft/EVA
+- SHE: https://github.com/loumiaolin/SHE
+
+All other application benchmarks are fully implemented and reproducible in this artifact.
+
+### Bit Width Coverage
+
+All benchmarks support multiple bit widths as described in the paper:
+
+- **6-bit**: Baseline for fast evaluation
+- **8-bit**: Standard precision for most applications
+- **12-bit**: Higher precision, scheme switching becomes impractical
+- **16-bit**: Maximum precision tested, only practical for TFHE and encoding switching
+
+### Summary of Completeness
+
+✅ **Complete**: All three FHE paradigms implemented
+✅ **Complete**: All three workload patterns implemented
+✅ **Complete**: 4 of 5 application benchmarks fully implemented
+⚠️ **Limitation**: Neural network benchmarks reference existing implementations (reasonably justified above)
+✅ **Complete**: Multiple bit widths supported (6, 8, 12, 16 bits)
+✅ **Complete**: All results in paper Figures 2, 4, 5, 7, 8(b) are reproducible
+
+## Artifact Exercisability
+
+This section demonstrates that the artifact can be successfully built, executed, and produces meaningful results.
+
+### Automated Build System
+
+We provide **two approaches** for building and running the artifact:
+
+#### Approach 1: Docker (Recommended for Reviewers)
+
+Complete, isolated environment with all dependencies pre-installed:
+
+```bash
+docker-compose build          # Builds complete environment (45-90 min)
+docker-compose up -d          # Start container
+docker-compose exec fhe-artifact bash  # Enter container
+```
+
+**Docker advantages:**
+- ✅ No manual dependency installation
+- ✅ Guaranteed reproducible environment
+- ✅ All libraries pre-built (OpenFHE, HElib)
+- ✅ All benchmarks pre-compiled
+- ✅ Easy cleanup (remove container)
+
+**Docker files provided:**
+- `Dockerfile` - Complete environment definition
+- `docker-compose.yml` - Container orchestration with resource limits
+- `.dockerignore` - Build optimization
+- `DOCKER.md` - Complete Docker documentation
+
+#### Approach 2: Native Installation
+
+All components use standard build systems with clear instructions:
+
+1. **TFHE (Rust)**: Uses Cargo for dependency management and building
+   - Dependencies automatically downloaded
+   - Single command: `cargo build --release`
+
+2. **Scheme Switching (C++)**: Uses CMake for cross-platform building
+   - Manual OpenFHE installation required (documented in README.md)
+   - Standard build: `mkdir build && cd build && cmake .. && make`
+
+3. **Encoding Switching (C++)**: Uses CMake for cross-platform building
+   - Manual HElib installation required (documented in README.md)
+   - Standard build: `mkdir build && cd build && cmake .. && make`
+
+### Automated Testing Scripts
+
+We provide automated scripts to verify the environment and run benchmarks:
+
+- **`verify_environment.sh`**: Checks all dependencies are correctly installed
+- **`build_all.sh`**: Builds all three FHE implementations
+- **`run_quick_tests.sh`**: Runs fast smoke tests (~5-10 minutes)
+- **`run_full_benchmarks.sh`**: Runs complete benchmark suite (hours to days)
+
+See "Provided Scripts" section below for details.
+
+### Dependency Management
+
+**TFHE (Rust):**
+- Dependencies managed via `Cargo.toml` in each project
+- Pinned to TFHE-rs version 0.7.x
+- Automatic downloading and building
+
+**Scheme Switching (C++):**
+- Requires OpenFHE (cloned from GitHub)
+- Build from source ensures compatibility
+- CMakeLists.txt specifies compiler requirements
+
+**Encoding Switching (C++):**
+- Requires HElib (cloned from GitHub)
+- Requires HE-Bridge framework (cloned from GitHub)
+- Build from source ensures compatibility
+- CMakeLists.txt specifies compiler requirements
+
+**Note on dependency versions**: We use the latest stable versions of OpenFHE and HElib at the time of paper submission (early 2025). These are actively maintained projects with stable APIs. If future versions introduce breaking changes, users can check out specific commits:
+- OpenFHE: Known working commit documented in `scheme_switching/README.md`
+- HElib: Known working commit documented in `encoding_switching/README.md`
+
+### Expected Outputs
+
+Each benchmark produces clearly formatted output with:
+- Execution time measurements
+- Bit width specifications
+- Success/failure indicators
+- Comparisons with theoretical complexity
+
+**Example output format:**
+```
+=== TFHE Workload Benchmarks ===
+Workload-1: (a*b) compare c
+  6-bit:  290.67s  ✓
+  8-bit:  323.82s  ✓
+
+Workload-2: (a compare b) * c
+  6-bit:  98.43s   ✓
+  8-bit:  106.12s  ✓
+```
+
+### Provided Scripts
+
+The artifact includes the following helper scripts in the root directory:
+
+#### 1. Environment Verification Script
+
+**File**: `verify_environment.sh`
+
+Checks that all required dependencies are installed:
+- System packages (GCC, CMake, Git, etc.)
+- Rust toolchain
+- OpenFHE installation
+- HElib installation
+- HE-Bridge framework
+
+**Usage**:
+```bash
+./verify_environment.sh
+```
+
+**Expected output**: Checklist showing ✓ for each correctly installed component
+
+#### 2. Build All Script
+
+**File**: `build_all.sh`
+
+Builds all three FHE implementations:
+- Compiles all TFHE Rust projects
+- Builds scheme switching C++ projects
+- Builds encoding switching C++ projects
+
+**Usage**:
+```bash
+./build_all.sh
+```
+
+**Execution time**: 10-20 minutes
+
+#### 3. Quick Test Script
+
+**File**: `run_quick_tests.sh`
+
+Runs fast smoke tests for each implementation:
+- TFHE: Workload-1 with 6-bit only
+- Scheme Switching: Basic workload test
+- Encoding Switching: Basic workload test
+
+**Usage**:
+```bash
+./run_quick_tests.sh
+```
+
+**Execution time**: 5-10 minutes
+
+#### 4. Full Benchmark Script
+
+**File**: `run_full_benchmarks.sh`
+
+Runs complete benchmark suite matching paper results.
+
+**Warning**: This takes many hours to days to complete.
+
+**Usage**:
+```bash
+./run_full_benchmarks.sh
+```
+
+**Execution time**: 24-72 hours (depending on hardware)
+
+### Known Limitations
+
+1. **Platform dependency**: Only tested on Ubuntu Linux 20.04/22.04
+   - May work on other Linux distributions with adjustments
+   - macOS/Windows not supported
+
+2. **Resource requirements**: Some benchmarks require substantial resources
+   - Floyd-Warshall with 64+ nodes: 16GB+ RAM
+   - Full benchmark suite: 50+ hours of computation time
+
+3. **Non-deterministic timing**: Execution times vary based on:
+   - CPU model and core count
+   - System load
+   - Memory configuration
+   - Results should be within ±20% of reported values
+
+4. **External dependencies**: OpenFHE and HElib must be built from source
+   - Not available via package managers
+   - Build process documented but requires ~30-60 minutes
+
+These limitations are documented in README.md and do not prevent reviewers from successfully building and running the artifact.
+
+## Summary for "Available" and "Functional" Badges
+
+### "Artifact Available" Badge Requirements
+
+✅ **Public availability**: GitHub repository at https://github.com/jqxue1999/Artifact
+✅ **Alternative mirror**: UCF repository at https://github.com/UCF-ML-Research/FHE-AI-Generality.git
+✅ **Persistent archiving**: Zenodo DOI (to be assigned after paper acceptance)
+✅ **Open-source license**: MIT License (see LICENSE file)
+✅ **Relevance to paper**: Implements all three FHE paradigms evaluated in paper
+✅ **No security risks**: Documented in Section "Security/Privacy Issues and Ethical Concerns"
+
+### "Artifact Functional" Badge Requirements
+
+✅ **Documentation**:
+- Main README.md provides complete installation and usage instructions
+- Component-specific READMEs for TFHE, Scheme Switching, and Encoding Switching
+- ARTIFACT-APPENDIX.md (this file) provides detailed evaluation guidance
+- CLAUDE.md provides additional implementation guidance
+
+✅ **Completeness**:
+- All three FHE paradigms implemented (TFHE, Scheme Switching, Encoding Switching)
+- All three workload patterns implemented (Workload-1, 2, 3)
+- 4 of 5 application benchmarks fully implemented
+- Neural network benchmarks reference existing implementations (justified in Completeness section)
+- Multiple bit widths supported (6, 8, 12, 16 bits)
+- All paper results in Figures 2, 4, 5, 7, 8(b) are reproducible
+
+✅ **Exercisability**:
+- Standard build systems (Cargo for Rust, CMake for C++)
+- Automated helper scripts provided (verify_environment.sh, build_all.sh, run_quick_tests.sh)
+- Clear expected outputs documented
+- Environment testing procedures provided
+- Known limitations clearly documented
+
+### Documentation Files
 
 **For full reproduction of paper results**, see:
 - `README.md` - Complete documentation with expected outputs
 - `rust/tfhe-example/README.md` - Detailed TFHE (bit-wise FHE) documentation
 - `scheme_switching/README.md` - Detailed scheme switching documentation
 - `encoding_switching/README.md` - Detailed encoding switching documentation
+- `CLAUDE.md` - Additional implementation guidance for developers
+
+### Quick Start for Reviewers
+
+#### Option 1: Using Docker (Recommended - Easiest)
+
+```bash
+# 1. Build Docker image (45-90 min, one-time)
+docker-compose build
+
+# 2. Start and enter container
+docker-compose up -d
+docker-compose exec fhe-artifact bash
+
+# 3. Inside container: verify and test
+./verify_environment.sh
+./run_quick_tests.sh          # ~10 minutes
+
+# 4. View results (on host machine)
+exit
+ls docker_results/
+```
+
+#### Option 2: Using Native Installation
+
+```bash
+# 1. Install dependencies (see Installation section)
+# ... follow README.md installation steps ...
+
+# 2. Verify environment
+./verify_environment.sh
+
+# 3. Build all components
+./build_all.sh
+
+# 4. Run quick tests (~10 mins)
+./run_quick_tests.sh
+
+# 5. Optional - Full benchmarks (hours to days)
+./run_full_benchmarks.sh
+```
+
+### Additional Documentation
+
+- **Docker Setup**: See `DOCKER.md` for complete Docker documentation
+- **Native Setup**: See `README.md` for installation and usage
+- **TFHE Details**: See `rust/tfhe-example/README.md`
+- **Scheme Switching**: See `scheme_switching/README.md`
+- **Encoding Switching**: See `encoding_switching/README.md`
+
+For questions or issues, please open an issue on the GitHub repository.
