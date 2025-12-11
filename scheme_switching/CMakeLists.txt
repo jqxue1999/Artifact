@@ -55,13 +55,12 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Scheme Switching Benchmark Suite
-add_executable(workload 
+add_executable(workload
     src/workload.cpp
     src/utils.cpp
 )
 
-# Link with benchmark library
-target_link_libraries(workload benchmark)
+# Note: benchmark library not needed for workload executable
 
 add_executable(decision_tree 
     src/decision_tree.cpp

@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  fhe-artifact:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fhe-artifact:latest
+    container_name: fhe-artifact
+    hostname: fhe-artifact
+
+    # Resource limits (adjust based on your system)
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 32G
+        reservations:
+          cpus: '4'
+          memory: 16G
+
+    # Mount volumes for persistent results
+    volumes:
+      - ./docker_results:/artifact/results
+      - ./docker_logs:/artifact/logs
+
+    # Keep container running
+    tty: true
+    stdin_open: true
+
+    # Working directory
+    working_dir: /artifact
+
+    # Environment variables
+    environment:
+      - RUST_BACKTRACE=1
+      - LD_LIBRARY_PATH=/artifact/openfhelibs/lib:/artifact/helib_install/lib
+
+    # Command to run on startup
+    command: /bin/bash
