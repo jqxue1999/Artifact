@@ -1,0 +1,62 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Build artifacts
+**/target/
+**/build/
+**/Cargo.lock
+**/*.o
+**/*.a
+**/*.so
+**/*.dylib
+
+# Results and logs
+results/
+logs/
+quick_test_results/
+full_benchmark_results/
+docker_results/
+docker_logs/
+
+# External dependencies (will be cloned in Dockerfile)
+openfhe-development/
+openfhelibs/
+HElib/
+helib_install/
+HE-Bridge/
+
+# Documentation that's not needed in container
+paper.pdf
+*.pptx
+*.docx
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+*.cache
+
+# Python cache (if any)
+__pycache__/
+*.py[cod]
+*$py.class
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
