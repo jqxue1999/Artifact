@@ -5,11 +5,9 @@ project(demo CXX)
 set(CMAKE_CXX_STANDARD 17)
 option(BUILD_STATIC "Set to ON to include static versions of the library" OFF)
 
-set(OpenFHE_INCLUDE "/home/jiaq/Research/Code/Universal/openfhelibs/include")
-set(OpenFHE_LIBDIR "/home/jiaq/Research/Code/Universal/openfhelibs/lib")
-
-set(BENCHMARK_INCLUDE "/home/jiaq/Research/Code/Universal/benchmarklibs/include")
-set(BENCHMARK_LIBDIR "/home/jiaq/Research/Code/Universal/benchmarklibs/lib")
+# Note: Hardcoded paths removed - find_package(OpenFHE) will set paths automatically
+# This allows the project to work in both local development and Docker environments
+# The paths are set via CMAKE_PREFIX_PATH environment variable
 
 find_package(OpenFHE CONFIG REQUIRED)
 if(OpenFHE_FOUND)
@@ -31,11 +29,9 @@ include_directories(${OpenFHE_INCLUDE}/third-party/include)
 include_directories(${OpenFHE_INCLUDE}/core)
 include_directories(${OpenFHE_INCLUDE}/pke)
 include_directories(${OpenFHE_INCLUDE}/binfhe)
-include_directories(${BENCHMARK_INCLUDE})
 ### add directories for other OpenFHE modules as needed for your project
 
 link_directories(${OpenFHE_LIBDIR})
-link_directories(${BENCHMARK_LIBDIR})
 link_directories(${OPENMP_LIBRARIES})
 if(BUILD_STATIC)
     set(CMAKE_EXE_LINKER_FLAGS "${OpenFHE_EXE_LINKER_FLAGS} -static")
