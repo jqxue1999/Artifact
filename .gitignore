@@ -30,10 +30,15 @@ openfhe-development/
 # Executables
 *.exe
 workload
-decision_tree
-sorting
 floyd_warshall
 database_aggregation
+# Ignore executables but not the source directories
+/rust/tfhe-example/*/target/*/sorting
+/rust/tfhe-example/*/target/*/decision_tree
+/scheme_switching/build/bin/sorting
+/scheme_switching/build/bin/decision_tree
+/encoding_switching/build/bin/sorting
+/encoding_switching/build/bin/decision_tree
 
 # Rust build artifacts
 Cargo.lock
