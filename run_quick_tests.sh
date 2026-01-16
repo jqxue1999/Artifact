@@ -88,7 +88,7 @@ echo "Test 1/3: TFHE Workloads"
 echo "------------------------"
 run_test "TFHE-Workloads" \
     "rust/tfhe-example/workloads" \
-    "cargo run 2>&1 | head -n 100" \
+    "cargo run --release 2>&1 | head -n 100" \
     300
 
 # Test 2: Scheme Switching

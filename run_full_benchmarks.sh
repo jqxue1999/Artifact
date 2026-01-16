@@ -106,23 +106,23 @@ echo ""
 
 run_benchmark "TFHE-Workloads" \
     "rust/tfhe-example/workloads" \
-    "cargo run"
+    "cargo run --release"
 
 run_benchmark "TFHE-Sorting" \
     "rust/tfhe-example/sorting" \
-    "cargo run"
+    "cargo run --release"
 
 run_benchmark "TFHE-Floyd-Warshall" \
     "rust/tfhe-example/floyd" \
-    "cargo run"
+    "cargo run --release"
 
 run_benchmark "TFHE-Decision-Tree" \
     "rust/tfhe-example/decision_tree" \
-    "cargo run"
+    "cargo run --release"
 
 run_benchmark "TFHE-Private-Database" \
     "rust/tfhe-example/private_db" \
-    "cargo run"
+    "cargo run --release"
 
 echo "========================================="
 echo "PART 2: Scheme Switching Benchmarks"
