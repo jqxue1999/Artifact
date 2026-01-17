@@ -59,5 +59,14 @@ add_executable(database_aggregation
     src/Ctxt_ext.cpp)
 target_link_libraries(database_aggregation helib)
 
+# Build quick test for fast smoke testing (2-3 minutes)
+# Tests 6-bit workload only
+add_executable(quick_test
+    src/quick_test.cpp
+    src/bridge.cpp
+    src/tools.cpp
+    src/Ctxt_ext.cpp)
+target_link_libraries(quick_test helib)
+
 message(STATUS "Build configuration complete. Use 'make' to build the benchmarks.")
 message(STATUS "Executables will be in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/")

@@ -91,49 +91,27 @@ run_test "TFHE-Workloads" \
     "cargo run --release 2>&1 | head -n 100" \
     300
 
-# Test 2: Scheme Switching (Build Verification)
+# Test 2: Scheme Switching (Quick Test - 6-bit, 8 SIMD slots)
 echo "Test 2/3: Scheme Switching"
 echo "--------------------------"
-echo "NOTE: Full scheme switching benchmarks take 30-60 minutes per workload."
-echo "This quick test only verifies the build completed successfully."
+echo "NOTE: This runs a quick 6-bit test with 8 SIMD slots (2-3 minutes)"
+echo "For full benchmarks (30-60 min per workload): cd scheme_switching/build/bin && ./workload"
 echo ""
-if [ -f "scheme_switching/build/bin/workload" ] && \
-   [ -f "scheme_switching/build/bin/decision_tree" ] && \
-   [ -f "scheme_switching/build/bin/sorting" ] && \
-   [ -f "scheme_switching/build/bin/floyd_warshall" ] && \
-   [ -f "scheme_switching/build/bin/database_aggregation" ]; then
-    echo -e "${GREEN}✓ All Scheme-Switching executables found${NC}"
-    echo "  - workload, decision_tree, sorting, floyd_warshall, database_aggregation"
-    echo "  To run full benchmarks: cd scheme_switching/build/bin && ./workload"
-    echo ""
-    ((++TEST_PASS))
-else
-    echo -e "${RED}✗ Some Scheme-Switching executables missing${NC}"
-    echo ""
-    ((TEST_FAIL++))
-fi
+run_test "Scheme-Switching-Quick" \
+    "scheme_switching/build/bin" \
+    "./quick_test 2>&1 | head -n 50" \
+    300
 
-# Test 3: Encoding Switching (Build Verification)
+# Test 3: Encoding Switching (Quick Test - 6-bit only)
 echo "Test 3/3: Encoding Switching"
 echo "----------------------------"
-echo "NOTE: Full encoding switching benchmarks take similar time to scheme switching."
-echo "This quick test only verifies the build completed successfully."
+echo "NOTE: This runs a quick 6-bit test (2-3 minutes)"
+echo "For full benchmarks: cd encoding_switching/build/bin && ./workload"
 echo ""
-if [ -f "encoding_switching/build/bin/workload" ] && \
-   [ -f "encoding_switching/build/bin/decision_tree" ] && \
-   [ -f "encoding_switching/build/bin/sorting" ] && \
-   [ -f "encoding_switching/build/bin/floyd_warshall" ] && \
-   [ -f "encoding_switching/build/bin/database_aggregation" ]; then
-    echo -e "${GREEN}✓ All Encoding-Switching executables found${NC}"
-    echo "  - workload, decision_tree, sorting, floyd_warshall, database_aggregation"
-    echo "  To run full benchmarks: cd encoding_switching/build/bin && ./workload"
-    echo ""
-    ((++TEST_PASS))
-else
-    echo -e "${RED}✗ Some Encoding-Switching executables missing${NC}"
-    echo ""
-    ((TEST_FAIL++))
-fi
+run_test "Encoding-Switching-Quick" \
+    "encoding_switching/build/bin" \
+    "./quick_test 2>&1 | head -n 50" \
+    300
 
 # Return to starting directory
 cd "$START_DIR"

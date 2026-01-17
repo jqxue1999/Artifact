@@ -88,6 +88,13 @@ add_executable(test_decision_tree_small
     src/utils.cpp
 )
 
+# Quick test for fast smoke testing (2-3 minutes)
+# Tests 6-bit workload with reduced SIMD slots
+add_executable(quick_test
+    src/quick_test.cpp
+    src/utils.cpp
+)
+
 # # Scheme Switching Benchmark Suite
 # add_executable(scheme-switching-benchmark-test
 #     src/main_test.cpp
