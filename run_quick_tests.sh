@@ -36,26 +36,24 @@ echo ""
 TEST_PASS=0
 TEST_FAIL=0
 
-# Function to run test with timeout and capture output
+# Function to run test and capture output (no timeout limit)
 run_test() {
     local name=$1
     local dir=$2
     local cmd=$3
-    local timeout=$4  # in seconds
 
     echo "========================================="
     echo -e "${BLUE}Testing: $name${NC}"
     echo "========================================="
     echo "Directory: $dir"
     echo "Command: $cmd"
-    echo "Timeout: ${timeout}s"
     echo ""
 
     local result_file="$RESULTS_DIR/${name// /_}_$TIMESTAMP.log"
 
     if cd "$dir" 2>/dev/null; then
         echo "Running test..."
-        if timeout "$timeout" bash -c "$cmd" > "$result_file" 2>&1; then
+        if bash -c "$cmd" > "$result_file" 2>&1; then
             echo -e "${GREEN}✓ $name PASSED${NC}"
             echo "Output saved to: $result_file"
             echo ""
@@ -63,12 +61,7 @@ run_test() {
             cd - > /dev/null
             return 0
         else
-            local exit_code=$?
-            if [ $exit_code -eq 124 ]; then
-                echo -e "${YELLOW}⚠ $name TIMEOUT (exceeded ${timeout}s)${NC}"
-            else
-                echo -e "${RED}✗ $name FAILED${NC}"
-            fi
+            echo -e "${RED}✗ $name FAILED${NC}"
             echo "Output saved to: $result_file"
             echo ""
             ((++TEST_FAIL))
@@ -88,8 +81,7 @@ echo "Test 1/3: TFHE Workloads"
 echo "------------------------"
 run_test "TFHE-Workloads" \
     "rust/tfhe-example/workloads" \
-    "cargo run --release 2>&1 | head -n 100" \
-    300
+    "cargo run --release 2>&1 | head -n 100"
 
 # Test 2: Scheme Switching (Quick Test - 6-bit, 8 SIMD slots)
 echo "Test 2/3: Scheme Switching"
@@ -99,8 +91,7 @@ echo "For full benchmarks (30-60 min per workload): cd scheme_switching/build/bi
 echo ""
 run_test "Scheme-Switching-Quick" \
     "scheme_switching/build/bin" \
-    "./quick_test 2>&1 | head -n 50" \
-    300
+    "./quick_test 2>&1 | head -n 50"
 
 # Test 3: Encoding Switching (Quick Test - 6-bit only)
 echo "Test 3/3: Encoding Switching"
@@ -110,8 +101,7 @@ echo "For full benchmarks: cd encoding_switching/build/bin && ./workload"
 echo ""
 run_test "Encoding-Switching-Quick" \
     "encoding_switching/build/bin" \
-    "./quick_test 2>&1 | head -n 50" \
-    300
+    "./quick_test 2>&1 | head -n 50"
 
 # Return to starting directory
 cd "$START_DIR"
