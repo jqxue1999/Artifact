@@ -696,9 +696,50 @@ Runs complete benchmark suite matching all paper results.
 - All encoding switching benchmarks
 
 **Usage:**
+
+For quick verification (runs in foreground):
 ```bash
 ./run_full_benchmarks.sh
 ```
+
+**For long-running benchmarks** (recommended - survives SSH disconnect):
+
+Option 1: Using `nohup` (simplest):
+```bash
+nohup ./run_full_benchmarks.sh > benchmark.log 2>&1 &
+
+# Check if running
+./check_benchmark_status.sh
+
+# View live progress
+tail -f benchmark.log
+```
+
+Option 2: Using `tmux` (persistent session):
+```bash
+# Start new session
+tmux new -s benchmark
+
+# Run benchmarks
+./run_full_benchmarks.sh
+
+# Detach: Press Ctrl+B, then D
+# Resume later: tmux attach -t benchmark
+```
+
+**Checking Progress:**
+
+Since full benchmarks take 24-72 hours, use the status checker anytime:
+```bash
+./check_benchmark_status.sh
+```
+
+This shows:
+- Whether benchmarks are still running or completed
+- Progress (X/15 benchmarks done)
+- Time elapsed and last completed benchmark
+- Recent log files
+- System resources
 
 **Output:** Individual logs and summary in `full_benchmark_results/` directory
 

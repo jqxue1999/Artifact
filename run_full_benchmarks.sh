@@ -51,6 +51,28 @@ echo "Started: $(date)" >> "$SUMMARY_LOG"
 echo "=========================================" >> "$SUMMARY_LOG"
 echo "" >> "$SUMMARY_LOG"
 
+# Status tracking files
+STATUS_FILE="$RESULTS_DIR/.benchmark_status"
+RUNNING_FILE="$RESULTS_DIR/.benchmark_running"
+COMPLETE_FILE="$RESULTS_DIR/.benchmark_complete"
+FAILED_FILE="$RESULTS_DIR/.benchmark_failed"
+
+# Total number of benchmarks
+TOTAL_BENCHMARKS=15
+COMPLETED_BENCHMARKS=0
+
+# Create running marker
+echo "PID: $$" > "$RUNNING_FILE"
+echo "Started: $(date)" >> "$RUNNING_FILE"
+echo "Total: $TOTAL_BENCHMARKS benchmarks" >> "$RUNNING_FILE"
+echo "" >> "$RUNNING_FILE"
+
+# Initialize status file
+echo "Progress: 0/$TOTAL_BENCHMARKS (0%)" > "$STATUS_FILE"
+echo "Status: Starting benchmarks..." >> "$STATUS_FILE"
+echo "Last Updated: $(date)" >> "$STATUS_FILE"
+echo "" >> "$STATUS_FILE"
+
 # Function to run benchmark
 run_benchmark() {
     local name=$1
@@ -78,6 +100,15 @@ run_benchmark() {
             echo "Duration: $duration_human" | tee -a "$SUMMARY_LOG"
             echo "Output saved to: $result_file" | tee -a "$SUMMARY_LOG"
             echo "" | tee -a "$SUMMARY_LOG"
+
+            # Update progress
+            ((COMPLETED_BENCHMARKS++))
+            local percent=$((COMPLETED_BENCHMARKS * 100 / TOTAL_BENCHMARKS))
+            echo "Progress: $COMPLETED_BENCHMARKS/$TOTAL_BENCHMARKS ($percent%)" > "$STATUS_FILE"
+            echo "Last Completed: $name" >> "$STATUS_FILE"
+            echo "Last Updated: $(date)" >> "$STATUS_FILE"
+            echo "" >> "$STATUS_FILE"
+
             cd - > /dev/null
             return 0
         else
@@ -89,6 +120,13 @@ run_benchmark() {
             echo "Duration before failure: $duration_human" | tee -a "$SUMMARY_LOG"
             echo "Output saved to: $result_file" | tee -a "$SUMMARY_LOG"
             echo "" | tee -a "$SUMMARY_LOG"
+
+            # Mark as failed
+            echo "Failed Benchmark: $name" > "$FAILED_FILE"
+            echo "Failed At: $(date)" >> "$FAILED_FILE"
+            echo "Completed: $COMPLETED_BENCHMARKS/$TOTAL_BENCHMARKS" >> "$FAILED_FILE"
+            echo "See log: $result_file" >> "$FAILED_FILE"
+
             cd - > /dev/null
             return 1
         fi
@@ -188,11 +226,27 @@ echo "Results saved in: $RESULTS_DIR/" | tee -a "$SUMMARY_LOG"
 echo "Summary log: $SUMMARY_LOG" | tee -a "$SUMMARY_LOG"
 echo "" | tee -a "$SUMMARY_LOG"
 
+# Create completion marker
+local total_duration=$(($(date +%s) - $(stat -c %Y "$RUNNING_FILE")))
+local total_duration_human=$(date -u -d @${total_duration} +"%T")
+
+echo "Completed: $(date)" > "$COMPLETE_FILE"
+echo "Total Duration: $total_duration_human" >> "$COMPLETE_FILE"
+echo "All $TOTAL_BENCHMARKS/$TOTAL_BENCHMARKS benchmarks finished successfully" >> "$COMPLETE_FILE"
+echo "" >> "$COMPLETE_FILE"
+echo "See: $SUMMARY_LOG" >> "$COMPLETE_FILE"
+
+# Remove running marker
+rm -f "$RUNNING_FILE"
+
 echo ""
 echo -e "${GREEN}✓ Full benchmark suite completed!${NC}"
 echo ""
+echo "Total time: $total_duration_human"
+echo ""
 echo "Next steps:"
 echo "  - Review summary: cat $SUMMARY_LOG"
+echo "  - Check status: ./check_benchmark_status.sh"
 echo "  - Compare results with paper Figures 2, 4, 5, 7, 8(b)"
 echo "  - Individual benchmark logs in $RESULTS_DIR/"
 echo ""
