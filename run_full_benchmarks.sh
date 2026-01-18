@@ -102,7 +102,7 @@ run_benchmark() {
             echo "" | tee -a "$SUMMARY_LOG"
 
             # Update progress
-            ((COMPLETED_BENCHMARKS++))
+            ((++COMPLETED_BENCHMARKS))
             local percent=$((COMPLETED_BENCHMARKS * 100 / TOTAL_BENCHMARKS))
             echo "Progress: $COMPLETED_BENCHMARKS/$TOTAL_BENCHMARKS ($percent%)" > "$STATUS_FILE"
             echo "Last Completed: $name" >> "$STATUS_FILE"
@@ -227,8 +227,8 @@ echo "Summary log: $SUMMARY_LOG" | tee -a "$SUMMARY_LOG"
 echo "" | tee -a "$SUMMARY_LOG"
 
 # Create completion marker
-local total_duration=$(($(date +%s) - $(stat -c %Y "$RUNNING_FILE")))
-local total_duration_human=$(date -u -d @${total_duration} +"%T")
+total_duration=$(($(date +%s) - $(stat -c %Y "$RUNNING_FILE")))
+total_duration_human=$(date -u -d @${total_duration} +"%T")
 
 echo "Completed: $(date)" > "$COMPLETE_FILE"
 echo "Total Duration: $total_duration_human" >> "$COMPLETE_FILE"
