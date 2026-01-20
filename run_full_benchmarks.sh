@@ -91,7 +91,8 @@ run_benchmark() {
     local start_time=$(date +%s)
 
     if cd "$dir" 2>/dev/null; then
-        if eval "$cmd" > "$result_file" 2>&1; then
+        # Use stdbuf to disable output buffering for real-time progress
+        if stdbuf -oL -eL bash -c "$cmd" 2>&1 | tee "$result_file"; then
             local end_time=$(date +%s)
             local duration=$((end_time - start_time))
             local duration_human=$(date -u -d @${duration} +"%T")
@@ -121,11 +122,22 @@ run_benchmark() {
             echo "Output saved to: $result_file" | tee -a "$SUMMARY_LOG"
             echo "" | tee -a "$SUMMARY_LOG"
 
+            # Show last 50 lines of error output
+            echo "=========================================" | tee -a "$SUMMARY_LOG"
+            echo "Last 50 lines of output:" | tee -a "$SUMMARY_LOG"
+            echo "=========================================" | tee -a "$SUMMARY_LOG"
+            tail -50 "$result_file" | tee -a "$SUMMARY_LOG"
+            echo "=========================================" | tee -a "$SUMMARY_LOG"
+            echo "" | tee -a "$SUMMARY_LOG"
+
             # Mark as failed
             echo "Failed Benchmark: $name" > "$FAILED_FILE"
             echo "Failed At: $(date)" >> "$FAILED_FILE"
             echo "Completed: $COMPLETED_BENCHMARKS/$TOTAL_BENCHMARKS" >> "$FAILED_FILE"
             echo "See log: $result_file" >> "$FAILED_FILE"
+            echo "" >> "$FAILED_FILE"
+            echo "Last 50 lines of output:" >> "$FAILED_FILE"
+            tail -50 "$result_file" >> "$FAILED_FILE"
 
             cd - > /dev/null
             return 1
@@ -138,7 +150,7 @@ run_benchmark() {
 }
 
 echo "========================================="
-echo "PART 1: TFHE Benchmarks (Rust)"
+echo "PART 1: Quick TFHE Benchmarks (< 1 minute)"
 echo "========================================="
 echo ""
 
@@ -146,24 +158,25 @@ run_benchmark "TFHE-Workloads" \
     "rust/tfhe-example/workloads" \
     "cargo run --release"
 
-run_benchmark "TFHE-Sorting" \
-    "rust/tfhe-example/sorting" \
-    "cargo run --release"
-
-run_benchmark "TFHE-Floyd-Warshall" \
-    "rust/tfhe-example/floyd" \
-    "cargo run --release"
-
 run_benchmark "TFHE-Decision-Tree" \
     "rust/tfhe-example/decision_tree" \
     "cargo run --release"
+
+echo "========================================="
+echo "PART 2: Medium TFHE Benchmarks (20-30 minutes)"
+echo "========================================="
+echo ""
 
 run_benchmark "TFHE-Private-Database" \
     "rust/tfhe-example/private_db" \
     "cargo run --release"
 
+run_benchmark "TFHE-Sorting" \
+    "rust/tfhe-example/sorting" \
+    "cargo run --release"
+
 echo "========================================="
-echo "PART 2: Scheme Switching Benchmarks"
+echo "PART 3: Scheme Switching (may fail at high bit-width)"
 echo "========================================="
 echo ""
 
@@ -188,7 +201,7 @@ run_benchmark "Scheme-Switching-Database" \
     "./database_aggregation"
 
 echo "========================================="
-echo "PART 3: Encoding Switching Benchmarks"
+echo "PART 4: Encoding Switching (may fail at high bit-width)"
 echo "========================================="
 echo ""
 
@@ -211,6 +224,18 @@ run_benchmark "Encoding-Switching-Floyd-Warshall" \
 run_benchmark "Encoding-Switching-Database" \
     "encoding_switching/build/bin" \
     "./database_aggregation"
+
+echo "========================================="
+echo "PART 5: Very Slow Benchmarks (hours to days)"
+echo "========================================="
+echo ""
+echo "WARNING: TFHE-Floyd-Warshall takes approximately 30 days"
+echo "Press Ctrl+C to skip, or wait 30 seconds to continue..."
+sleep 30
+
+run_benchmark "TFHE-Floyd-Warshall" \
+    "rust/tfhe-example/floyd" \
+    "cargo run --release"
 
 # Return to starting directory
 cd "$START_DIR"

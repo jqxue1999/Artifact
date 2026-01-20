@@ -147,7 +147,7 @@ int main() {
     uint32_t n = 32;
     int iterations = n * n;
 
-    for (auto bits : {6, 8, 12, 16}) {
+    for (auto bits : {6, 8}) {  // Removed 12, 16 due to memory constraints (>32GB needed)
         cout << left << setw(12) << n
              << left << setw(15) << bits;
         cout.flush();

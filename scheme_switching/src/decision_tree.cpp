@@ -197,9 +197,10 @@ int main() {
     cout << "Evaluating decision trees with SIMD batching (128 inputs per batch)" << endl;
     cout << "Using scheme switching between CKKS and FHEW" << endl << endl;
 
-    // Experiment: Different depths with 6, 8, 12, 16-bit inputs
+    // Experiment: Different depths with 6, 8-bit inputs
+    // (12, 16-bit removed due to memory constraints - require >32GB)
     vector<uint32_t> depths = {2, 4, 6, 8};
-    vector<uint32_t> bit_widths = {6, 8, 12, 16};
+    vector<uint32_t> bit_widths = {6, 8};
 
     for (auto depth : depths) {
         int num_nodes = (1 << depth) - 1;

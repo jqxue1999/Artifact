@@ -209,15 +209,16 @@ int main(int argc, char *argv[]) {
 
     vector<ParamSet> param_sets = {
         {"6-bit",  3,   4, 16151, 320,  6},
-        {"8-bit",  17,  2, 13201, 256,  8},
-        {"12-bit", 67,  2, 31159, 690,  12},
-        {"16-bit", 257, 2, 77641, 1000, 16}
+        {"8-bit",  17,  2, 13201, 256,  8}
+        // 12-bit and 16-bit removed due to memory constraints (require >32GB)
+        // {"12-bit", 67,  2, 31159, 690,  12},
+        // {"16-bit", 257, 2, 77641, 1000, 16}
     };
 
     unsigned long c = 2;   // Key-switching columns
     unsigned long t = 64;  // Hamming weight of secret key
 
-    cout << "Testing workloads with bit widths: 6, 8, 12, 16" << endl;
+    cout << "Testing workloads with bit widths: 6, 8" << endl;
     cout << "Each configuration uses different parameters (p, r, m)" << endl << endl;
 
     // Workload 1

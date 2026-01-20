@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
 
     // Experiment: Different depths with different bit widths
     vector<uint32_t> depths = {2, 4, 6, 8};
-    vector<uint32_t> bit_widths = {6, 8, 12, 16};
+    vector<uint32_t> bit_widths = {6, 8};  // Removed 12, 16 due to memory constraints (>32GB needed)
 
     cout << "Evaluating decision trees with encoding switching" << endl << endl;
 

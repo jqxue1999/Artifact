@@ -175,7 +175,7 @@ int main() {
     uint32_t array_size = 8;
     int comparisons = array_size * (array_size - 1) / 2;
 
-    for (auto bits : {6, 8, 12, 16}) {
+    for (auto bits : {6, 8}) {  // Removed 12, 16 due to memory constraints (>32GB needed)
         cout << left << setw(15) << array_size
              << left << setw(15) << bits;
         cout.flush();
