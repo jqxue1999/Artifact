@@ -1,6 +1,7 @@
 use tfhe::prelude::*;
 use tfhe::{ClientKey, FheUint6, FheUint8, FheUint12, FheUint16};
 use std::time::Instant;
+use std::io::{self, Write};
 
 /// Floyd-Warshall algorithm on encrypted 8-bit distance matrix
 ///
@@ -15,6 +16,12 @@ pub fn floyd_warshall_encrypted_u8(
     client_key: &ClientKey,
 ) -> (Vec<Vec<FheUint8>>, std::time::Duration) {
     let start = Instant::now();
+    let total_iterations = n * n * n;
+    let mut completed = 0;
+    let report_interval = if n <= 32 { 100 } else { 1000 };
+
+    // Pre-encrypt the constant "1" outside the loop for efficiency
+    let one = FheUint8::try_encrypt(1u8, client_key).unwrap();
 
     // Floyd-Warshall: for each intermediate vertex k
     for k in 0..n {
@@ -31,16 +38,28 @@ pub fn floyd_warshall_encrypted_u8(
 
                 // Oblivious selection:
                 // result = is_shorter * new_dist + (1 - is_shorter) * old_dist
-                let one = FheUint8::try_encrypt(1u8, client_key).unwrap();
                 let keep_old = &one - &is_shorter_uint;
 
                 let select_new = &is_shorter_uint * &new_dist;
                 let select_old = &keep_old * &dist[i][j];
 
                 dist[i][j] = &select_new + &select_old;
+
+                completed += 1;
+                if completed % report_interval == 0 {
+                    let elapsed = start.elapsed().as_secs_f64();
+                    let percent = (completed as f64 / total_iterations as f64) * 100.0;
+                    let avg_per_iter = elapsed / completed as f64;
+                    let remaining = ((total_iterations - completed) as f64 * avg_per_iter) / 60.0;
+                    println!("  Progress: {}/{} ({:.1}%) | Elapsed: {:.1}min | Est. remaining: {:.1}min",
+                           completed, total_iterations, percent, elapsed / 60.0, remaining);
+                    io::stdout().flush().unwrap();
+                }
             }
         }
     }
+    print!("\r");
+    io::stdout().flush().unwrap();
 
     let duration = start.elapsed();
     (dist, duration)
@@ -53,6 +72,12 @@ pub fn floyd_warshall_encrypted_u6(
     client_key: &ClientKey,
 ) -> (Vec<Vec<FheUint6>>, std::time::Duration) {
     let start = Instant::now();
+    let total_iterations = n * n * n;
+    let mut completed = 0;
+    let report_interval = if n <= 32 { 100 } else { 1000 };
+
+    // Pre-encrypt the constant "1" outside the loop for efficiency
+    let one = FheUint6::try_encrypt(1u8, client_key).unwrap();
 
     for k in 0..n {
         for i in 0..n {
@@ -61,13 +86,23 @@ pub fn floyd_warshall_encrypted_u6(
                 let is_shorter = new_dist.lt(&dist[i][j]);
                 let is_shorter_uint: FheUint6 = is_shorter.cast_into();
 
-                let one = FheUint6::try_encrypt(1u8, client_key).unwrap();
                 let keep_old = &one - &is_shorter_uint;
 
                 let select_new = &is_shorter_uint * &new_dist;
                 let select_old = &keep_old * &dist[i][j];
 
                 dist[i][j] = &select_new + &select_old;
+
+                completed += 1;
+                if completed % report_interval == 0 {
+                    let elapsed = start.elapsed().as_secs_f64();
+                    let percent = (completed as f64 / total_iterations as f64) * 100.0;
+                    let avg_per_iter = elapsed / completed as f64;
+                    let remaining = ((total_iterations - completed) as f64 * avg_per_iter) / 60.0;
+                    println!("  Progress: {}/{} ({:.1}%) | Elapsed: {:.1}min | Est. remaining: {:.1}min",
+                           completed, total_iterations, percent, elapsed / 60.0, remaining);
+                    io::stdout().flush().unwrap();
+                }
             }
         }
     }
@@ -83,6 +118,12 @@ pub fn floyd_warshall_encrypted_u12(
     client_key: &ClientKey,
 ) -> (Vec<Vec<FheUint12>>, std::time::Duration) {
     let start = Instant::now();
+    let total_iterations = n * n * n;
+    let mut completed = 0;
+    let report_interval = if n <= 32 { 100 } else { 1000 };
+
+    // Pre-encrypt the constant "1" outside the loop for efficiency
+    let one = FheUint12::try_encrypt(1u16, client_key).unwrap();
 
     for k in 0..n {
         for i in 0..n {
@@ -91,16 +132,28 @@ pub fn floyd_warshall_encrypted_u12(
                 let is_shorter = new_dist.lt(&dist[i][j]);
                 let is_shorter_uint: FheUint12 = is_shorter.cast_into();
 
-                let one = FheUint12::try_encrypt(1u16, client_key).unwrap();
                 let keep_old = &one - &is_shorter_uint;
 
                 let select_new = &is_shorter_uint * &new_dist;
                 let select_old = &keep_old * &dist[i][j];
 
                 dist[i][j] = &select_new + &select_old;
+
+                completed += 1;
+                if completed % report_interval == 0 {
+                    let elapsed = start.elapsed().as_secs_f64();
+                    let percent = (completed as f64 / total_iterations as f64) * 100.0;
+                    let avg_per_iter = elapsed / completed as f64;
+                    let remaining = ((total_iterations - completed) as f64 * avg_per_iter) / 60.0;
+                    println!("  Progress: {}/{} ({:.1}%) | Elapsed: {:.1}min | Est. remaining: {:.1}min",
+                           completed, total_iterations, percent, elapsed / 60.0, remaining);
+                    io::stdout().flush().unwrap();
+                }
             }
         }
     }
+    print!("\r");
+    io::stdout().flush().unwrap();
 
     let duration = start.elapsed();
     (dist, duration)
@@ -113,6 +166,12 @@ pub fn floyd_warshall_encrypted_u16(
     client_key: &ClientKey,
 ) -> (Vec<Vec<FheUint16>>, std::time::Duration) {
     let start = Instant::now();
+    let total_iterations = n * n * n;
+    let mut completed = 0;
+    let report_interval = if n <= 32 { 100 } else { 1000 };
+
+    // Pre-encrypt the constant "1" outside the loop for efficiency
+    let one = FheUint16::try_encrypt(1u16, client_key).unwrap();
 
     for k in 0..n {
         for i in 0..n {
@@ -121,16 +180,28 @@ pub fn floyd_warshall_encrypted_u16(
                 let is_shorter = new_dist.lt(&dist[i][j]);
                 let is_shorter_uint: FheUint16 = is_shorter.cast_into();
 
-                let one = FheUint16::try_encrypt(1u16, client_key).unwrap();
                 let keep_old = &one - &is_shorter_uint;
 
                 let select_new = &is_shorter_uint * &new_dist;
                 let select_old = &keep_old * &dist[i][j];
 
                 dist[i][j] = &select_new + &select_old;
+
+                completed += 1;
+                if completed % report_interval == 0 {
+                    let elapsed = start.elapsed().as_secs_f64();
+                    let percent = (completed as f64 / total_iterations as f64) * 100.0;
+                    let avg_per_iter = elapsed / completed as f64;
+                    let remaining = ((total_iterations - completed) as f64 * avg_per_iter) / 60.0;
+                    println!("  Progress: {}/{} ({:.1}%) | Elapsed: {:.1}min | Est. remaining: {:.1}min",
+                           completed, total_iterations, percent, elapsed / 60.0, remaining);
+                    io::stdout().flush().unwrap();
+                }
             }
         }
     }
+    print!("\r");
+    io::stdout().flush().unwrap();
 
     let duration = start.elapsed();
     (dist, duration)

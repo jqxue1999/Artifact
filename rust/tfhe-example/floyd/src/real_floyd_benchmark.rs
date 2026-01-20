@@ -1,6 +1,7 @@
 use tfhe::prelude::*;
 use tfhe::{generate_keys, set_server_key, FheUint6, FheUint8, FheUint12, FheUint16};
 use std::time::Duration;
+use std::io::{self, Write};
 use crate::real_floyd::*;
 use crate::security_params::get_secure_config;
 
@@ -26,6 +27,7 @@ pub fn run_real_floyd_benchmarks() {
         let iterations = n * n * n;
 
         print!("{:<10} {:<12} ", n, bit_width);
+        io::stdout().flush().unwrap();
 
         let result = match bit_width {
             6 => benchmark_floyd_u6(n),
@@ -45,12 +47,14 @@ pub fn run_real_floyd_benchmarks() {
                          format_duration(duration),
                          iterations,
                          status);
+                io::stdout().flush().unwrap();
             }
             Err(e) => {
                 println!("{:<15} {:<15} {:<10}",
                          "-",
                          iterations,
                          format!("✗ {}", e));
+                io::stdout().flush().unwrap();
             }
         }
     }
@@ -69,6 +73,7 @@ pub fn run_real_floyd_benchmarks() {
         let iterations = n * n * n;
 
         print!("{:<10} {:<12} ", n, bit_width);
+        io::stdout().flush().unwrap();
 
         let result = benchmark_floyd_u8(n);
 
@@ -79,12 +84,14 @@ pub fn run_real_floyd_benchmarks() {
                          format_duration(duration),
                          iterations,
                          status);
+                io::stdout().flush().unwrap();
             }
             Err(e) => {
                 println!("{:<15} {:<15} {:<10}",
                          "-",
                          iterations,
                          format!("✗ {}", e));
+                io::stdout().flush().unwrap();
             }
         }
     }
