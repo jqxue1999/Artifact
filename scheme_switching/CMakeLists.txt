@@ -95,6 +95,13 @@ add_executable(quick_test
     src/utils.cpp
 )
 
+# Quick all tests - verifies ALL benchmark types with minimal parameters
+# Covers: Workload, Decision Tree, Sorting, Floyd-Warshall, Database
+add_executable(quick_all
+    src/quick_all.cpp
+    src/utils.cpp
+)
+
 # # Scheme Switching Benchmark Suite
 # add_executable(scheme-switching-benchmark-test
 #     src/main_test.cpp

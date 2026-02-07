@@ -68,5 +68,14 @@ add_executable(quick_test
     src/Ctxt_ext.cpp)
 target_link_libraries(quick_test helib)
 
+# Build quick all test - verifies ALL benchmark types with minimal parameters
+# Covers: Workload, Decision Tree, Sorting, Floyd-Warshall, Database
+add_executable(quick_all
+    src/quick_all.cpp
+    src/bridge.cpp
+    src/tools.cpp
+    src/Ctxt_ext.cpp)
+target_link_libraries(quick_all helib)
+
 message(STATUS "Build configuration complete. Use 'make' to build the benchmarks.")
 message(STATUS "Executables will be in ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/")
