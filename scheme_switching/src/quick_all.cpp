@@ -236,19 +236,16 @@ int main() {
     cout << left << setw(15) << formatDuration(t2) << left << setw(15) << "PASSED" << endl;
     passed++;
 
-    // Test 3: Sorting - SKIPPED (requires too much memory for FHEW->CKKS conversion)
-    cout << left << setw(25) << "Sorting" << left << setw(15) << "N/A" << left << setw(15) << "SKIPPED (mem)" << endl;
-
-    // Test 4: Floyd-Warshall
+    // Test 3: Floyd-Warshall
     cout << left << setw(25) << "Floyd-Warshall"; cout.flush();
-    double t4 = QuickFloyd(BITS, SLOTS);
-    cout << left << setw(15) << formatDuration(t4) << left << setw(15) << "PASSED" << endl;
+    double t3 = QuickFloyd(BITS, SLOTS);
+    cout << left << setw(15) << formatDuration(t3) << left << setw(15) << "PASSED" << endl;
     passed++;
 
-    // Test 5: Database
+    // Test 4: Database
     cout << left << setw(25) << "Database"; cout.flush();
-    double t5 = QuickDatabase(BITS, SLOTS);
-    cout << left << setw(15) << formatDuration(t5) << left << setw(15) << "PASSED" << endl;
+    double t4 = QuickDatabase(BITS, SLOTS);
+    cout << left << setw(15) << formatDuration(t4) << left << setw(15) << "PASSED" << endl;
     passed++;
 
     cout << string(80, '-') << endl;
