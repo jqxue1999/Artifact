@@ -82,12 +82,12 @@ double QuickDecisionTree(uint32_t integerBits, uint32_t numSlots) {
 }
 
 // ============================================================================
-// Sorting (4 elements, minimal)
+// Sorting (2 elements, minimal - reduced to avoid OOM)
 // ============================================================================
 double QuickSorting(uint32_t integerBits, uint32_t numSlots) {
     SetupCryptoContext(20, numSlots, integerBits);
 
-    const uint32_t arraySize = 4;  // Minimal array
+    const uint32_t arraySize = 2;  // Minimal array to avoid OOM
 
     random_device rd;
     mt19937 gen(42);
@@ -105,16 +105,11 @@ double QuickSorting(uint32_t integerBits, uint32_t numSlots) {
 
     auto t_start = chrono::steady_clock::now();
 
-    // Bubble sort style - just do pairwise comparisons
-    for (uint32_t i = 0; i < arraySize; i++) {
-        for (uint32_t j = i + 1; j < arraySize; j++) {
-            auto cmp = Comparison(enc_arr[i], enc_arr[j]);
-            auto cmpCKKS = g_cc->EvalFHEWtoCKKS(cmp, g_numValues, g_numValues);
-            // Oblivious swap (simplified - just compute, don't actually swap)
-            auto diff = g_cc->EvalSub(enc_arr[j], enc_arr[i]);
-            auto selected = g_cc->Rescale(g_cc->EvalMult(cmpCKKS, diff));
-        }
-    }
+    // Single comparison (arr[0] vs arr[1])
+    auto cmp = Comparison(enc_arr[0], enc_arr[1]);
+    auto cmpCKKS = g_cc->EvalFHEWtoCKKS(cmp, g_numValues, g_numValues);
+    auto diff = g_cc->EvalSub(enc_arr[1], enc_arr[0]);
+    auto selected = g_cc->Rescale(g_cc->EvalMult(cmpCKKS, diff));
 
     return chrono::duration<double>(chrono::steady_clock::now() - t_start).count();
 }
